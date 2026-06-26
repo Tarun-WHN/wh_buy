@@ -8,10 +8,13 @@ services:
     # --include=dev ensures devDeps (typescript, tailwind, tsx) install even with NODE_ENV=production.
     # A throwaway local SQLite shields `next build` from any accidental build-time DB access.
     buildCommand: npm install --include=dev && DATABASE_URL="file:/tmp/build.db" npx prisma migrate deploy && DATABASE_URL="file:/tmp/build.db" npm run build
-    # preDeploy runs AFTER build with the persistent disk mounted at /data — the only safe place
-    # to create/migrate the real database and seed it. Seed is idempotent (upserts + clean re-create).
-    preDeployCommand: npx prisma migrate deploy && npx prisma db seed
-    startCommand: npm run start
+    # NOTE: Render's pre-deploy step does NOT mount this service's persistent disk, so migrating
+    # there writes to throwaway storage the running server never sees. Run migrations in the START
+    # command instead — that's the only context with /data actually mounted. migrate deploy is a
+    # fast no-op when there are no pending migrations. Seeding is a one-time manual step via the
+    # Render Shell (`npx prisma db seed`); it must NOT run on every boot or it would overwrite
+    # any admin edits to seeded records.
+    startCommand: npx prisma migrate deploy && npm run start
     disk:
       name: wh-buy-data
       mountPath: /data
