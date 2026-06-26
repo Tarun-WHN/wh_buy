@@ -30,6 +30,7 @@ import {
   UserCog,
   Lock,
   Menu,
+  HelpCircle,
 } from "lucide-react";
 
 interface NavItem {
@@ -329,6 +330,23 @@ function SidebarContent({
             >
               <ShieldCheck className="h-[18px] w-[18px] shrink-0" />
               {!collapsed && <span>Approvals</span>}
+            </Link>
+          </div>
+
+          {/* Help & FAQ — visible to everyone */}
+          <div className="mt-1">
+            <Link
+              href="/help"
+              className={cn(
+                "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all",
+                isActive("/help")
+                  ? "bg-white/12 text-white"
+                  : "text-white/55 hover:bg-white/8 hover:text-white"
+              )}
+              title={collapsed ? "Help & FAQ" : undefined}
+            >
+              <HelpCircle className="h-[18px] w-[18px] shrink-0" />
+              {!collapsed && <span>Help &amp; FAQ</span>}
             </Link>
           </div>
         </nav>

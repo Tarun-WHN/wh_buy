@@ -227,7 +227,14 @@ export default function CreateGrnPage() {
                 onValueChange={(val) => setSelectedDeliveryId(val ?? "")}
               >
                 <SelectTrigger className="mt-1.5">
-                  <SelectValue placeholder="Select delivery" />
+                  <SelectValue placeholder="Select delivery">
+                    {(value) => {
+                      const d = deliveries.find((dl) => dl.id === value);
+                      return d
+                        ? `${d.number} - ${d.purchaseOrder.vendor.name}`
+                        : "Select delivery";
+                    }}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {deliveries.map((d) => (

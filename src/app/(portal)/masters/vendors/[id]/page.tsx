@@ -540,7 +540,12 @@ export default function VendorDetailPage({
                     onValueChange={(val) => setNewCategoryId(val ?? "")}
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder="Select category" />
+                      <SelectValue placeholder="Select category">
+                        {(value) => {
+                          const cat = allCategories.find((c) => c.id === value);
+                          return cat ? cat.name : "Select category";
+                        }}
+                      </SelectValue>
                     </SelectTrigger>
                     <SelectContent>
                       {availableCategories.map((cat) => (

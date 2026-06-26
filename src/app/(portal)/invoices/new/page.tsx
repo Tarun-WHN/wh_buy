@@ -143,7 +143,12 @@ export default function CreateInvoicePage() {
               <Label>Purchase Order *</Label>
               <Select value={selectedPoId} onValueChange={(val) => setSelectedPoId(val ?? "")}>
                 <SelectTrigger className="mt-1.5">
-                  <SelectValue placeholder="Select PO" />
+                  <SelectValue placeholder="Select PO">
+                    {(value) => {
+                      const po = pos.find((p) => p.id === value);
+                      return po ? `${po.number} - ${po.vendor.name}` : "Select PO";
+                    }}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {pos.map((po) => (

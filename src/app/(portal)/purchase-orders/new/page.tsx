@@ -330,7 +330,12 @@ export default function NewPurchaseOrderPage() {
               </Label>
               <Select value={vendorId} onValueChange={handleVendorChange}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select vendor" />
+                  <SelectValue placeholder="Select vendor">
+                    {(value) => {
+                      const v = vendors.find((vd) => vd.id === value);
+                      return v ? `${v.name} (${v.code})` : "Select vendor";
+                    }}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {vendors.map((v) => (
@@ -348,7 +353,12 @@ export default function NewPurchaseOrderPage() {
               </Label>
               <Select value={warehouseId} onValueChange={handleWarehouseChange}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select warehouse" />
+                  <SelectValue placeholder="Select warehouse">
+                    {(value) => {
+                      const wh = warehouses.find((w) => w.id === value);
+                      return wh ? `${wh.name} (${wh.code})` : "Select warehouse";
+                    }}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {warehouses.map((w) => (
@@ -486,7 +496,13 @@ export default function NewPurchaseOrderPage() {
                           }
                         >
                           <SelectTrigger>
-                            <SelectValue placeholder="Select product" />
+                            <SelectValue placeholder="Select product">
+                              {(value) =>
+                                value && item.productName
+                                  ? `${item.productName} (${item.sku}) - ${item.uom}`
+                                  : "Select product"
+                              }
+                            </SelectValue>
                           </SelectTrigger>
                           <SelectContent>
                             <div className="p-2">

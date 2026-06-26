@@ -355,7 +355,14 @@ export default function NewRfqPage() {
                 onValueChange={(val) => handleRequirementChange(val ?? "")}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Select requirement (optional)" />
+                  <SelectValue placeholder="Select requirement (optional)">
+                    {(value) => {
+                      const req = requirements.find((r) => r.id === value);
+                      return req
+                        ? `${req.number} - ${req.title}`
+                        : "Select requirement (optional)";
+                    }}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="__none__">None</SelectItem>
@@ -421,7 +428,9 @@ export default function NewRfqPage() {
                         onValueChange={(val) => selectProduct(item.key, val ?? "")}
                       >
                         <SelectTrigger>
-                          <SelectValue placeholder="Select product" />
+                          <SelectValue placeholder="Select product">
+                            {() => item.productName || "Select product"}
+                          </SelectValue>
                         </SelectTrigger>
                         <SelectContent>
                           <div className="p-2">

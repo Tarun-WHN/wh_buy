@@ -270,7 +270,12 @@ export default function ProductDetailPage({
                     onValueChange={handleCategoryChange}
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder="Select category" />
+                      <SelectValue placeholder="Select category">
+                        {(value) => {
+                          const cat = categories.find((c) => c.id === value);
+                          return cat ? cat.name : "Select category";
+                        }}
+                      </SelectValue>
                     </SelectTrigger>
                     <SelectContent>
                       {categories.map((cat) => (
@@ -290,7 +295,12 @@ export default function ProductDetailPage({
                     disabled={!categoryId}
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder="Select subcategory" />
+                      <SelectValue placeholder="Select subcategory">
+                        {(value) => {
+                          const sub = subcategories.find((s) => s.id === value);
+                          return sub ? sub.name : "Select subcategory";
+                        }}
+                      </SelectValue>
                     </SelectTrigger>
                     <SelectContent>
                       {subcategories.map((sub) => (
@@ -310,7 +320,12 @@ export default function ProductDetailPage({
                     disabled={!subcategoryId}
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder="Select product group" />
+                      <SelectValue placeholder="Select product group">
+                        {(value) => {
+                          const pg = productGroups.find((p) => p.id === value);
+                          return pg ? pg.name : "Select product group";
+                        }}
+                      </SelectValue>
                     </SelectTrigger>
                     <SelectContent>
                       {productGroups.map((pg) => (

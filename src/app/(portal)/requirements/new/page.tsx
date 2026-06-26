@@ -235,7 +235,12 @@ export default function NewRequirementPage() {
               </Label>
               <Select value={warehouseId} onValueChange={(val) => setWarehouseId(val ?? "")}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select warehouse" />
+                  <SelectValue placeholder="Select warehouse">
+                    {(value) => {
+                      const wh = warehouses.find((w) => w.id === value);
+                      return wh ? `${wh.name} (${wh.code})` : "Select warehouse";
+                    }}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {warehouses.map((wh) => (
@@ -326,7 +331,9 @@ export default function NewRequirementPage() {
                         onValueChange={(val) => selectProduct(item.key, val ?? "")}
                       >
                         <SelectTrigger>
-                          <SelectValue placeholder="Select product" />
+                          <SelectValue placeholder="Select product">
+                            {() => item.productName || "Select product"}
+                          </SelectValue>
                         </SelectTrigger>
                         <SelectContent>
                           <div className="p-2">
