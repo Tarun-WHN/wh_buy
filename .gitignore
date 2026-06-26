@@ -48,3 +48,6 @@ next-env.d.ts
 # database
 *.db
 *.db-journal
+
+# npm lockfile is platform-specific (native binaries); let each env resolve its own
+package-lock.json
