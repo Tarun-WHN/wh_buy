@@ -1,0 +1,101 @@
+import { ROLES } from "@/lib/constants";
+
+// ============================================================
+// PERMISSION KEYS
+// ============================================================
+
+export const PERMISSIONS = {
+  LOCATION_MANAGE: "LOCATION_MANAGE",
+  PRODUCT_MANAGE: "PRODUCT_MANAGE",
+  VENDOR_MANAGE: "VENDOR_MANAGE",
+  REQUIREMENT_CREATE: "REQUIREMENT_CREATE",
+  REQUIREMENT_APPROVE: "REQUIREMENT_APPROVE",
+  RFQ_CREATE: "RFQ_CREATE",
+  RFQ_APPROVE: "RFQ_APPROVE",
+  PO_CREATE: "PO_CREATE",
+  PO_APPROVE: "PO_APPROVE",
+  INVOICE_MANAGE: "INVOICE_MANAGE",
+  PAYMENT_MANAGE: "PAYMENT_MANAGE",
+  ANALYTICS_VIEW: "ANALYTICS_VIEW",
+  USER_MANAGE: "USER_MANAGE",
+  APPROVAL_RULES_MANAGE: "APPROVAL_RULES_MANAGE",
+  DELIVERY_MANAGE: "DELIVERY_MANAGE",
+  GRN_CREATE: "GRN_CREATE",
+} as const;
+
+export type Permission = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];
+
+// ============================================================
+// ROLE -> PERMISSIONS MAP
+// ============================================================
+
+const ROLE_PERMISSIONS: Record<string, string[]> = {
+  [ROLES.SUPER_ADMIN]: Object.values(PERMISSIONS),
+
+  [ROLES.PROCUREMENT_HEAD]: [
+    PERMISSIONS.LOCATION_MANAGE,
+    PERMISSIONS.PRODUCT_MANAGE,
+    PERMISSIONS.VENDOR_MANAGE,
+    PERMISSIONS.REQUIREMENT_CREATE,
+    PERMISSIONS.REQUIREMENT_APPROVE,
+    PERMISSIONS.RFQ_CREATE,
+    PERMISSIONS.RFQ_APPROVE,
+    PERMISSIONS.PO_CREATE,
+    PERMISSIONS.PO_APPROVE,
+    PERMISSIONS.INVOICE_MANAGE,
+    PERMISSIONS.ANALYTICS_VIEW,
+    PERMISSIONS.APPROVAL_RULES_MANAGE,
+    PERMISSIONS.DELIVERY_MANAGE,
+    PERMISSIONS.GRN_CREATE,
+  ],
+
+  [ROLES.PROCUREMENT_MANAGER]: [
+    PERMISSIONS.PRODUCT_MANAGE,
+    PERMISSIONS.VENDOR_MANAGE,
+    PERMISSIONS.REQUIREMENT_CREATE,
+    PERMISSIONS.REQUIREMENT_APPROVE,
+    PERMISSIONS.RFQ_CREATE,
+    PERMISSIONS.PO_CREATE,
+    PERMISSIONS.INVOICE_MANAGE,
+    PERMISSIONS.ANALYTICS_VIEW,
+    PERMISSIONS.DELIVERY_MANAGE,
+    PERMISSIONS.GRN_CREATE,
+  ],
+
+  [ROLES.BUYER]: [
+    PERMISSIONS.REQUIREMENT_CREATE,
+    PERMISSIONS.RFQ_CREATE,
+    PERMISSIONS.PO_CREATE,
+    PERMISSIONS.VENDOR_MANAGE,
+    PERMISSIONS.DELIVERY_MANAGE,
+    PERMISSIONS.GRN_CREATE,
+  ],
+
+  [ROLES.ACCOUNTS]: [
+    PERMISSIONS.INVOICE_MANAGE,
+    PERMISSIONS.PAYMENT_MANAGE,
+    PERMISSIONS.ANALYTICS_VIEW,
+  ],
+
+  [ROLES.OPERATIONS]: [
+    PERMISSIONS.REQUIREMENT_CREATE,
+    PERMISSIONS.DELIVERY_MANAGE,
+    PERMISSIONS.GRN_CREATE,
+  ],
+
+  [ROLES.VENDOR]: [],
+};
+
+// ============================================================
+// PERMISSION HELPERS
+// ============================================================
+
+export function hasPermission(roleName: string, permission: string): boolean {
+  const permissions = ROLE_PERMISSIONS[roleName];
+  if (!permissions) return false;
+  return permissions.includes(permission);
+}
+
+export function getPermissionsForRole(roleName: string): string[] {
+  return ROLE_PERMISSIONS[roleName] ?? [];
+}

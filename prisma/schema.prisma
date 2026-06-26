@@ -1,0 +1,776 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================
+// AUTH & RBAC
+// ============================================================
+
+model User {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  name         String
+  passwordHash String
+  phone        String?
+  role         Role      @relation(fields: [roleId], references: [id])
+  roleId       String
+  warehouse    Warehouse? @relation(fields: [warehouseId], references: [id])
+  warehouseId  String?
+  isActive     Boolean   @default(true)
+  lastLoginAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  deletedAt    DateTime?
+
+  approvalActions    ApprovalAction[]
+  requirements       Requirement[]       @relation("RequirementCreator")
+  rfqsCreated        Rfq[]               @relation("RfqCreator")
+  posCreated         PurchaseOrder[]      @relation("PoCreator")
+  notifications      Notification[]
+  auditLogs          AuditLog[]
+  vendorUser         VendorUser?
+}
+
+model Role {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  label       String
+  permissions String   @default("[]")
+  isSystem    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  users       User[]
+}
+
+model VendorUser {
+  id       String @id @default(cuid())
+  user     User   @relation(fields: [userId], references: [id])
+  userId   String @unique
+  vendor   Vendor @relation(fields: [vendorId], references: [id])
+  vendorId String
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  entity    String
+  entityId  String
+  action    String
+  changes   String   @default("{}")
+  user      User     @relation(fields: [userId], references: [id])
+  userId    String
+  ipAddress String?
+  createdAt DateTime @default(now())
+
+  @@index([entity, entityId])
+  @@index([userId])
+}
+
+// ============================================================
+// LOCATION MASTER
+// ============================================================
+
+model Company {
+  id        String    @id @default(cuid())
+  name      String
+  code      String    @unique
+  address   String?
+  isActive  Boolean   @default(true)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  regions   Region[]
+}
+
+model Region {
+  id        String    @id @default(cuid())
+  name      String
+  code      String
+  company   Company   @relation(fields: [companyId], references: [id])
+  companyId String
+  isActive  Boolean   @default(true)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  states    State[]
+
+  @@unique([companyId, code])
+}
+
+model State {
+  id        String    @id @default(cuid())
+  name      String
+  code      String
+  region    Region    @relation(fields: [regionId], references: [id])
+  regionId  String
+  isActive  Boolean   @default(true)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  cities    City[]
+
+  @@unique([regionId, code])
+}
+
+model City {
+  id        String    @id @default(cuid())
+  name      String
+  code      String
+  state     State     @relation(fields: [stateId], references: [id])
+  stateId   String
+  isActive  Boolean   @default(true)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  warehouses Warehouse[]
+
+  @@unique([stateId, code])
+}
+
+model Warehouse {
+  id        String    @id @default(cuid())
+  name      String
+  code      String    @unique
+  address   String?
+  city      City      @relation(fields: [cityId], references: [id])
+  cityId    String
+  isActive  Boolean   @default(true)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  users          User[]
+  requirements   Requirement[]
+  purchaseOrders PurchaseOrder[]
+}
+
+// ============================================================
+// PRODUCT MASTER
+// ============================================================
+
+model Category {
+  id        String    @id @default(cuid())
+  name      String
+  code      String    @unique
+  isActive  Boolean   @default(true)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  subcategories  Subcategory[]
+  approvalRules  ApprovalRule[]
+  vendorCategories VendorCategory[]
+}
+
+model Subcategory {
+  id         String    @id @default(cuid())
+  name       String
+  code       String
+  category   Category  @relation(fields: [categoryId], references: [id])
+  categoryId String
+  isActive   Boolean   @default(true)
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  deletedAt  DateTime?
+
+  productGroups ProductGroup[]
+
+  @@unique([categoryId, code])
+}
+
+model ProductGroup {
+  id            String      @id @default(cuid())
+  name          String
+  code          String
+  subcategory   Subcategory @relation(fields: [subcategoryId], references: [id])
+  subcategoryId String
+  isActive      Boolean     @default(true)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  deletedAt     DateTime?
+
+  products      Product[]
+
+  @@unique([subcategoryId, code])
+}
+
+model Product {
+  id             String       @id @default(cuid())
+  name           String
+  sku            String       @unique
+  description    String?
+  uom            String
+  hsnCode        String?
+  gstPercent     Float        @default(0)
+  specifications String?
+  productGroup   ProductGroup @relation(fields: [productGroupId], references: [id])
+  productGroupId String
+  currentVersion Int          @default(1)
+  isActive       Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  deletedAt      DateTime?
+
+  versions         ProductVersion[]
+  requirementItems RequirementItem[]
+  rfqLineItems     RfqLineItem[]
+  vendorProducts   VendorProduct[]
+  priceHistory     PriceHistory[]
+}
+
+model ProductVersion {
+  id           String   @id @default(cuid())
+  product      Product  @relation(fields: [productId], references: [id])
+  productId    String
+  version      Int
+  name         String
+  description  String?
+  uom          String
+  specifications String?
+  changedBy    String
+  changeReason String?
+  createdAt    DateTime @default(now())
+
+  @@unique([productId, version])
+}
+
+// ============================================================
+// VENDOR MASTER
+// ============================================================
+
+model Vendor {
+  id                 String    @id @default(cuid())
+  name               String
+  code               String    @unique
+  legalName          String?
+  gstNumber          String?
+  panNumber          String?
+  cinNumber          String?
+  contactPerson      String
+  email              String
+  phone              String
+  address            String?
+  city               String?
+  state              String?
+  pincode            String?
+  bankName           String?
+  bankAccountNumber  String?
+  bankIfsc           String?
+  paymentTerms       String?
+  leadTimeDays       Int?
+  msmeStatus         String?
+  certifications     String?
+  registrationStatus String    @default("PENDING")
+  rating             Float     @default(0)
+  isActive           Boolean   @default(true)
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+  deletedAt          DateTime?
+
+  vendorUsers      VendorUser[]
+  vendorProducts   VendorProduct[]
+  vendorCategories VendorCategory[]
+  rfqVendors       RfqVendor[]
+  quotations       Quotation[]
+  purchaseOrders   PurchaseOrder[]
+  deliveries       Delivery[]
+  invoices         Invoice[]
+  scorecards       VendorScorecard[]
+  documents        Document[]
+}
+
+model VendorProduct {
+  id        String  @id @default(cuid())
+  vendor    Vendor  @relation(fields: [vendorId], references: [id])
+  vendorId  String
+  product   Product @relation(fields: [productId], references: [id])
+  productId String
+
+  @@unique([vendorId, productId])
+}
+
+model VendorCategory {
+  id         String   @id @default(cuid())
+  vendor     Vendor   @relation(fields: [vendorId], references: [id])
+  vendorId   String
+  category   Category @relation(fields: [categoryId], references: [id])
+  categoryId String
+
+  @@unique([vendorId, categoryId])
+}
+
+// ============================================================
+// REQUIREMENT MANAGEMENT
+// ============================================================
+
+model Requirement {
+  id           String    @id @default(cuid())
+  number       String    @unique
+  title        String
+  description  String?
+  warehouse    Warehouse @relation(fields: [warehouseId], references: [id])
+  warehouseId  String
+  department   String?
+  priority     String    @default("MEDIUM")
+  requiredDate DateTime?
+  status       String    @default("DRAFT")
+  createdBy    User      @relation("RequirementCreator", fields: [createdById], references: [id])
+  createdById  String
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  deletedAt    DateTime?
+
+  items     RequirementItem[]
+  rfqs      Rfq[]
+  approvals Approval[]
+}
+
+model RequirementItem {
+  id            String      @id @default(cuid())
+  requirement   Requirement @relation(fields: [requirementId], references: [id])
+  requirementId String
+  product       Product     @relation(fields: [productId], references: [id])
+  productId     String
+  quantity      Float
+  specifications String?
+  remarks       String?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+}
+
+// ============================================================
+// RFQ MODULE
+// ============================================================
+
+model Rfq {
+  id                 String       @id @default(cuid())
+  number             String       @unique
+  title              String
+  requirement        Requirement? @relation(fields: [requirementId], references: [id])
+  requirementId      String?
+  rfqType            String       @default("SINGLE")
+  status             String       @default("DRAFT")
+  submissionDeadline DateTime?
+  termsConditions    String?
+  deliveryLocation   String?
+  createdBy          User         @relation("RfqCreator", fields: [createdById], references: [id])
+  createdById        String
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+  deletedAt          DateTime?
+
+  lineItems   RfqLineItem[]
+  rfqVendors  RfqVendor[]
+  quotations  Quotation[]
+}
+
+model RfqLineItem {
+  id             String  @id @default(cuid())
+  rfq            Rfq     @relation(fields: [rfqId], references: [id])
+  rfqId          String
+  product        Product @relation(fields: [productId], references: [id])
+  productId      String
+  quantity       Float
+  specifications String?
+  targetPrice    Float?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  quotationItems QuotationItem[]
+}
+
+model RfqVendor {
+  id           String    @id @default(cuid())
+  rfq          Rfq       @relation(fields: [rfqId], references: [id])
+  rfqId        String
+  vendor       Vendor    @relation(fields: [vendorId], references: [id])
+  vendorId     String
+  dispatchedAt DateTime?
+  viewedAt     DateTime?
+  status       String    @default("PENDING")
+
+  @@unique([rfqId, vendorId])
+}
+
+// ============================================================
+// QUOTATION MANAGEMENT
+// ============================================================
+
+model Quotation {
+  id           String    @id @default(cuid())
+  number       String    @unique
+  rfq          Rfq       @relation(fields: [rfqId], references: [id])
+  rfqId        String
+  vendor       Vendor    @relation(fields: [vendorId], references: [id])
+  vendorId     String
+  revision     Int       @default(1)
+  status       String    @default("DRAFT")
+  validUntil   DateTime?
+  paymentTerms String?
+  deliveryTerms String?
+  warranty     String?
+  freight      Float     @default(0)
+  remarks      String?
+  totalAmount  Float     @default(0)
+  submittedAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  items QuotationItem[]
+}
+
+model QuotationItem {
+  id            String      @id @default(cuid())
+  quotation     Quotation   @relation(fields: [quotationId], references: [id])
+  quotationId   String
+  rfqLineItem   RfqLineItem @relation(fields: [rfqLineItemId], references: [id])
+  rfqLineItemId String
+  unitPrice     Float
+  quantity      Float
+  taxPercent    Float       @default(0)
+  taxAmount     Float       @default(0)
+  totalPrice    Float
+  deliveryDays  Int?
+  warranty      String?
+  remarks       String?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+}
+
+// ============================================================
+// PRICE HISTORY
+// ============================================================
+
+model PriceHistory {
+  id         String   @id @default(cuid())
+  product    Product  @relation(fields: [productId], references: [id])
+  productId  String
+  vendorId   String
+  unitPrice  Float
+  quantity   Float
+  sourceType String
+  sourceId   String
+  recordedAt DateTime @default(now())
+
+  @@index([productId, vendorId])
+}
+
+// ============================================================
+// APPROVAL WORKFLOW
+// ============================================================
+
+model ApprovalRule {
+  id             String    @id @default(cuid())
+  name           String
+  entity         String
+  category       Category? @relation(fields: [categoryId], references: [id])
+  categoryId     String?
+  minAmount      Float?
+  maxAmount      Float?
+  approverRoleId String
+  level          Int       @default(1)
+  isActive       Boolean   @default(true)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@index([entity])
+}
+
+model Approval {
+  id              String         @id @default(cuid())
+  entity          String
+  entityId        String
+  requirement     Requirement?   @relation(fields: [requirementId], references: [id])
+  requirementId   String?
+  purchaseOrder   PurchaseOrder? @relation(fields: [purchaseOrderId], references: [id])
+  purchaseOrderId String?
+  status          String         @default("PENDING")
+  currentLevel    Int            @default(1)
+  totalAmount     Float          @default(0)
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  actions ApprovalAction[]
+
+  @@index([entity, entityId])
+}
+
+model ApprovalAction {
+  id         String   @id @default(cuid())
+  approval   Approval @relation(fields: [approvalId], references: [id])
+  approvalId String
+  level      Int
+  action     String
+  comments   String?
+  actionBy   User     @relation(fields: [actionById], references: [id])
+  actionById String
+  actionAt   DateTime @default(now())
+}
+
+// ============================================================
+// PURCHASE ORDER
+// ============================================================
+
+model PurchaseOrder {
+  id                 String    @id @default(cuid())
+  number             String    @unique
+  rfqId              String?
+  vendor             Vendor    @relation(fields: [vendorId], references: [id])
+  vendorId           String
+  warehouse          Warehouse @relation(fields: [warehouseId], references: [id])
+  warehouseId        String
+  status             String    @default("DRAFT")
+  revision           Int       @default(1)
+  paymentTerms       String?
+  deliveryTerms      String?
+  deliveryDate       DateTime?
+  shippingAddress    String?
+  subtotal           Float     @default(0)
+  taxAmount          Float     @default(0)
+  freightAmount      Float     @default(0)
+  totalAmount        Float     @default(0)
+  remarks            String?
+  vendorAcceptedAt   DateTime?
+  vendorRejectedAt   DateTime?
+  vendorRejectReason String?
+  createdBy          User      @relation("PoCreator", fields: [createdById], references: [id])
+  createdById        String
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+  deletedAt          DateTime?
+
+  lineItems  PoLineItem[]
+  versions   PoVersion[]
+  approvals  Approval[]
+  deliveries Delivery[]
+  invoices   Invoice[]
+}
+
+model PoLineItem {
+  id              String        @id @default(cuid())
+  purchaseOrder   PurchaseOrder @relation(fields: [purchaseOrderId], references: [id])
+  purchaseOrderId String
+  productId       String
+  productName     String
+  sku             String
+  uom             String
+  quantity        Float
+  unitPrice       Float
+  taxPercent      Float         @default(0)
+  taxAmount       Float         @default(0)
+  totalPrice      Float
+  deliveredQty    Float         @default(0)
+  remarks         String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  grnItems GrnItem[]
+}
+
+model PoVersion {
+  id              String        @id @default(cuid())
+  purchaseOrder   PurchaseOrder @relation(fields: [purchaseOrderId], references: [id])
+  purchaseOrderId String
+  version         Int
+  snapshot        String
+  changedBy       String
+  changeReason    String?
+  createdAt       DateTime      @default(now())
+
+  @@unique([purchaseOrderId, version])
+}
+
+// ============================================================
+// DELIVERY TRACKING
+// ============================================================
+
+model Delivery {
+  id              String        @id @default(cuid())
+  number          String        @unique
+  purchaseOrder   PurchaseOrder @relation(fields: [purchaseOrderId], references: [id])
+  purchaseOrderId String
+  vendor          Vendor        @relation(fields: [vendorId], references: [id])
+  vendorId        String
+  status          String        @default("PENDING")
+  vehicleNumber   String?
+  driverName      String?
+  driverPhone     String?
+  lrNumber        String?
+  ewayBillNumber  String?
+  dispatchDate    DateTime?
+  expectedDate    DateTime?
+  deliveredDate   DateTime?
+  remarks         String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  grns Grn[]
+}
+
+// ============================================================
+// GRN MODULE
+// ============================================================
+
+model Grn {
+  id           String   @id @default(cuid())
+  number       String   @unique
+  delivery     Delivery @relation(fields: [deliveryId], references: [id])
+  deliveryId   String
+  status       String   @default("DRAFT")
+  receivedDate DateTime @default(now())
+  receivedBy   String
+  remarks      String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  items  GrnItem[]
+  photos GrnPhoto[]
+}
+
+model GrnItem {
+  id           String     @id @default(cuid())
+  grn          Grn        @relation(fields: [grnId], references: [id])
+  grnId        String
+  poLineItem   PoLineItem @relation(fields: [poLineItemId], references: [id])
+  poLineItemId String
+  orderedQty   Float
+  receivedQty  Float
+  acceptedQty  Float
+  rejectedQty  Float      @default(0)
+  rejectReason String?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+}
+
+model GrnPhoto {
+  id        String   @id @default(cuid())
+  grn       Grn      @relation(fields: [grnId], references: [id])
+  grnId     String
+  filePath  String
+  caption   String?
+  createdAt DateTime @default(now())
+}
+
+// ============================================================
+// INVOICE MANAGEMENT
+// ============================================================
+
+model Invoice {
+  id              String        @id @default(cuid())
+  number          String        @unique
+  vendorInvoiceNo String
+  purchaseOrder   PurchaseOrder @relation(fields: [purchaseOrderId], references: [id])
+  purchaseOrderId String
+  vendor          Vendor        @relation(fields: [vendorId], references: [id])
+  vendorId        String
+  invoiceDate     DateTime
+  dueDate         DateTime?
+  subtotal        Float
+  taxAmount       Float
+  totalAmount     Float
+  status          String        @default("PENDING")
+  poMatchStatus   String?
+  grnMatchStatus  String?
+  matchRemarks    String?
+  filePath        String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  payments Payment[]
+}
+
+// ============================================================
+// PAYMENT TRACKING
+// ============================================================
+
+model Payment {
+  id          String   @id @default(cuid())
+  invoice     Invoice  @relation(fields: [invoiceId], references: [id])
+  invoiceId   String
+  amount      Float
+  paymentDate DateTime
+  paymentMode String
+  referenceNo String?
+  remarks     String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// ============================================================
+// VENDOR SCORECARD
+// ============================================================
+
+model VendorScorecard {
+  id            String   @id @default(cuid())
+  vendor        Vendor   @relation(fields: [vendorId], references: [id])
+  vendorId      String
+  period        String
+  deliveryScore Float
+  qualityScore  Float
+  priceScore    Float
+  responseScore Float
+  overallScore  Float
+  remarks       String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([vendorId, period])
+}
+
+// ============================================================
+// DOCUMENTS & NOTIFICATIONS
+// ============================================================
+
+model Document {
+  id         String   @id @default(cuid())
+  name       String
+  filePath   String
+  fileSize   Int
+  mimeType   String
+  entity     String
+  entityId   String
+  version    Int      @default(1)
+  uploadedBy String
+  vendor     Vendor?  @relation(fields: [vendorId], references: [id])
+  vendorId   String?
+  createdAt  DateTime @default(now())
+
+  @@index([entity, entityId])
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  user      User     @relation(fields: [userId], references: [id])
+  userId    String
+  title     String
+  message   String
+  type      String
+  link      String?
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([userId, isRead])
+}
+
+// ============================================================
+// SEQUENCE COUNTER
+// ============================================================
+
+model SequenceCounter {
+  id        String @id @default(cuid())
+  entity    String
+  prefix    String
+  year      Int
+  lastValue Int    @default(0)
+
+  @@unique([entity, year])
+}
