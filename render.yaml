@@ -4,7 +4,13 @@ services:
     runtime: node
     region: singapore
     plan: starter
-    buildCommand: npm install && npx prisma generate && npx prisma migrate deploy && npx prisma db seed && npm run build
+    # Build runs WITHOUT the persistent disk mounted, so it must not touch /data.
+    # --include=dev ensures devDeps (typescript, tailwind, tsx) install even with NODE_ENV=production.
+    # A throwaway local SQLite shields `next build` from any accidental build-time DB access.
+    buildCommand: npm install --include=dev && DATABASE_URL="file:/tmp/build.db" npx prisma migrate deploy && DATABASE_URL="file:/tmp/build.db" npm run build
+    # preDeploy runs AFTER build with the persistent disk mounted at /data — the only safe place
+    # to create/migrate the real database and seed it. Seed is idempotent (upserts + clean re-create).
+    preDeployCommand: npx prisma migrate deploy && npx prisma db seed
     startCommand: npm run start
     disk:
       name: wh-buy-data
@@ -14,7 +20,7 @@ services:
       - key: DATABASE_URL
         value: file:/data/prod.db
       - key: NEXTAUTH_URL
-        value: https://wh-buy.onrender.com
+        value: https://wh-buy-e3ni.onrender.com
       - key: NEXTAUTH_SECRET
         generateValue: true
       - key: NODE_ENV
