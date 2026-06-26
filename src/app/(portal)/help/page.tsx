@@ -207,6 +207,7 @@ const ROLE_GUIDES: RoleGuide[] = [
 // ============================================================
 
 interface ModuleGuide {
+  slug: string;
   icon: React.ElementType;
   name: string;
   accent: string;
@@ -216,6 +217,7 @@ interface ModuleGuide {
 
 const MODULES: ModuleGuide[] = [
   {
+    slug: "dashboard",
     icon: LayoutDashboard,
     name: "Dashboard",
     accent: "#F47B20",
@@ -223,6 +225,7 @@ const MODULES: ModuleGuide[] = [
     how: "See pending counts, recent Purchase Orders and RFQs, and use the quick action buttons to start common tasks.",
   },
   {
+    slug: "locations",
     icon: MapPin,
     name: "Masters → Locations",
     accent: "#3b82f6",
@@ -230,6 +233,7 @@ const MODULES: ModuleGuide[] = [
     how: "Add the warehouses you buy for. Every Requirement and PO is tied to a warehouse.",
   },
   {
+    slug: "products",
     icon: Package,
     name: "Masters → Products",
     accent: "#8b5cf6",
@@ -237,6 +241,7 @@ const MODULES: ModuleGuide[] = [
     how: "Add products with their SKU and unit of measure. You'll pick from this list when raising requirements.",
   },
   {
+    slug: "vendors",
     icon: Users,
     name: "Masters → Vendors",
     accent: "#10b981",
@@ -244,6 +249,7 @@ const MODULES: ModuleGuide[] = [
     how: "Add vendors (or import in bulk). Link them to categories so the right vendors appear on RFQs.",
   },
   {
+    slug: "requirements",
     icon: ClipboardList,
     name: "Requirements",
     accent: "#f59e0b",
@@ -251,6 +257,7 @@ const MODULES: ModuleGuide[] = [
     how: "Click New Requirement, choose the warehouse, add line items (product + quantity) and submit for approval.",
   },
   {
+    slug: "rfq",
     icon: FileText,
     name: "RFQs (Request for Quote)",
     accent: "#06b6d4",
@@ -258,6 +265,7 @@ const MODULES: ModuleGuide[] = [
     how: "Create an RFQ from a requirement, select vendors, and send. Compare the quotes that come back side-by-side.",
   },
   {
+    slug: "purchase-orders",
     icon: ShoppingCart,
     name: "Purchase Orders",
     accent: "#ef4444",
@@ -265,6 +273,7 @@ const MODULES: ModuleGuide[] = [
     how: "Generate a PO from the winning quote (or directly). Once approved, it's shared with the vendor.",
   },
   {
+    slug: "deliveries",
     icon: Truck,
     name: "Deliveries",
     accent: "#0ea5e9",
@@ -272,6 +281,7 @@ const MODULES: ModuleGuide[] = [
     how: "Mark orders as dispatched / in-transit / delivered to keep everyone updated.",
   },
   {
+    slug: "grn",
     icon: ClipboardCheck,
     name: "GRN (Goods Receipt Note)",
     accent: "#22c55e",
@@ -279,6 +289,7 @@ const MODULES: ModuleGuide[] = [
     how: "On arrival, create a GRN against the delivery and record accepted vs rejected quantities.",
   },
   {
+    slug: "invoices",
     icon: Receipt,
     name: "Invoices",
     accent: "#a855f7",
@@ -286,6 +297,7 @@ const MODULES: ModuleGuide[] = [
     how: "Upload or open an invoice and verify it matches the order and what was received before approving it.",
   },
   {
+    slug: "payments",
     icon: CreditCard,
     name: "Payments",
     accent: "#14b8a6",
@@ -293,6 +305,7 @@ const MODULES: ModuleGuide[] = [
     how: "Record payments against approved invoices and track outstanding amounts by age.",
   },
   {
+    slug: "approvals",
     icon: ShieldCheck,
     name: "Approvals",
     accent: "#6366f1",
@@ -300,6 +313,7 @@ const MODULES: ModuleGuide[] = [
     how: "Open it to approve or reject requirements, RFQs and POs that need your decision.",
   },
   {
+    slug: "analytics",
     icon: BarChart3,
     name: "Analytics & Reports",
     accent: "#f97316",
@@ -307,6 +321,7 @@ const MODULES: ModuleGuide[] = [
     how: "Filter by period and export to PDF/Excel for reviews.",
   },
   {
+    slug: "settings",
     icon: Settings,
     name: "Settings",
     accent: "#64748b",
@@ -314,6 +329,7 @@ const MODULES: ModuleGuide[] = [
     how: "Add team members and assign roles, edit what each role can do, and set value-based approval levels. (Super Admin only.)",
   },
   {
+    slug: "vendor-portal",
     icon: Store,
     name: "Vendor Portal",
     accent: "#84cc16",
@@ -494,7 +510,8 @@ export default function HelpPage() {
             {MODULES.map((m) => (
               <div
                 key={m.name}
-                className="rounded-lg border p-4 transition-colors hover:bg-muted/30"
+                id={`help-${m.slug}`}
+                className="scroll-mt-20 rounded-lg border p-4 transition-colors target:border-[#F47B20] target:ring-2 target:ring-[#F47B20]/30 hover:bg-muted/30"
               >
                 <div className="mb-2 flex items-center gap-2.5">
                   <span
