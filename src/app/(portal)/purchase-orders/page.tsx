@@ -3,6 +3,7 @@
 import * as React from "react";
 import { useState, useEffect, useTransition } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Plus } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
@@ -93,6 +94,7 @@ const columns: ColumnDef<PoRow, unknown>[] = [
 // ============================================================
 
 export default function PurchaseOrderListPage() {
+  const router = useRouter();
   const [pos, setPos] = useState<PoRow[]>([]);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
@@ -135,7 +137,7 @@ export default function PurchaseOrderListPage() {
         title="Purchase Orders"
         description="Manage purchase orders"
       >
-        <Button render={<Link href="/purchase-orders/new" />}>
+        <Button variant="brand" render={<Link href="/purchase-orders/new" />}>
           <Plus className="mr-1.5 size-4" />
           New PO
         </Button>
@@ -175,6 +177,7 @@ export default function PurchaseOrderListPage() {
             data={pos}
             searchKey="vendorName"
             searchPlaceholder="Filter by vendor..."
+            onRowClick={(row) => router.push(`/purchase-orders/${row.id}`)}
           />
         </CardContent>
       </Card>

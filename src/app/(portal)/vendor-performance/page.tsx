@@ -292,7 +292,7 @@ export default function VendorPerformancePage() {
           />
           {syncing ? "Syncing..." : "Sync from records"}
         </Button>
-        <Button onClick={() => setAddOpen(true)}>
+        <Button variant="brand" onClick={() => setAddOpen(true)}>
           <Plus className="mr-1.5 size-4" />
           Add Row
         </Button>

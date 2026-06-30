@@ -3,6 +3,7 @@
 import * as React from "react";
 import { useState, useEffect, useTransition } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Plus } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
@@ -113,6 +114,7 @@ const columns: ColumnDef<InvoiceRow, unknown>[] = [
 // ============================================================
 
 export default function InvoiceListPage() {
+  const router = useRouter();
   const [invoices, setInvoices] = useState<InvoiceRow[]>([]);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
@@ -158,7 +160,7 @@ export default function InvoiceListPage() {
         title="Invoices"
         description="Manage vendor invoices and 3-way matching"
       >
-        <Button render={<Link href="/invoices/new" />}>
+        <Button variant="brand" render={<Link href="/invoices/new" />}>
           <Plus className="mr-1.5 size-4" />
           New Invoice
         </Button>
@@ -198,6 +200,7 @@ export default function InvoiceListPage() {
             data={invoices}
             searchKey="vendorName"
             searchPlaceholder="Filter by vendor..."
+            onRowClick={(row) => router.push(`/invoices/${row.id}`)}
           />
         </CardContent>
       </Card>

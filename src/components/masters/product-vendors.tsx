@@ -194,7 +194,12 @@ export function ProductVendors({
           </p>
         </div>
         {!showForm && (
-          <Button type="button" size="sm" onClick={() => setShowForm(true)}>
+          <Button
+            type="button"
+            variant="brand"
+            size="sm"
+            onClick={() => setShowForm(true)}
+          >
             <Plus className="mr-1.5 size-4" />
             Add Vendor
           </Button>

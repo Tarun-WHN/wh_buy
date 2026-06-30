@@ -263,7 +263,7 @@ export default function UsersPage() {
         title="User Management"
         description="Manage users and their access"
       >
-        <Button onClick={openAddDialog}>
+        <Button variant="brand" onClick={openAddDialog}>
           <Plus className="mr-2 size-4" />
           Add User
         </Button>

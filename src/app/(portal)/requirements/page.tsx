@@ -3,6 +3,7 @@
 import * as React from "react";
 import { useState, useEffect, useTransition } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Plus } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
@@ -93,6 +94,7 @@ const columns: ColumnDef<RequirementRow, unknown>[] = [
 // ============================================================
 
 export default function RequirementsPage() {
+  const router = useRouter();
   const [requirements, setRequirements] = useState<RequirementRow[]>([]);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
@@ -138,7 +140,7 @@ export default function RequirementsPage() {
         title="Requirements"
         description="Manage procurement requirements"
       >
-        <Button render={<Link href="/requirements/new" />}>
+        <Button variant="brand" render={<Link href="/requirements/new" />}>
           <Plus className="mr-1.5 size-4" />
           New Requirement
         </Button>
@@ -196,6 +198,7 @@ export default function RequirementsPage() {
             data={requirements}
             searchKey="title"
             searchPlaceholder="Filter by title..."
+            onRowClick={(row) => router.push(`/requirements/${row.id}`)}
           />
         </CardContent>
       </Card>

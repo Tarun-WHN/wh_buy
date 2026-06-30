@@ -290,7 +290,7 @@ export default function ApprovalRulesPage() {
         title="Approval Rules"
         description="Configure approval workflows and thresholds"
       >
-        <Button onClick={openAddDialog}>
+        <Button variant="brand" onClick={openAddDialog}>
           <Plus className="mr-2 size-4" />
           Add Rule
         </Button>

@@ -3,6 +3,7 @@
 import * as React from "react";
 import { useState, useEffect, useTransition } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card, CardContent } from "@/components/ui/card";
@@ -73,6 +74,7 @@ const columns: ColumnDef<VendorPoRow, unknown>[] = [
 export default function VendorOrdersPage() {
   const [orders, setOrders] = useState<VendorPoRow[]>([]);
   const [isPending, startTransition] = useTransition();
+  const router = useRouter();
 
   useEffect(() => {
     startTransition(async () => {
@@ -101,6 +103,7 @@ export default function VendorOrdersPage() {
             data={orders}
             searchKey="number"
             searchPlaceholder="Search by PO number..."
+            onRowClick={(row) => router.push(`/vendor-portal/orders/${row.id}`)}
           />
         </CardContent>
       </Card>

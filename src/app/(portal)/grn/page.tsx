@@ -3,6 +3,7 @@
 import * as React from "react";
 import { useState, useEffect, useTransition } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Plus } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
@@ -99,6 +100,7 @@ export default function GrnListPage() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [isPending, startTransition] = useTransition();
+  const router = useRouter();
 
   useEffect(() => {
     loadGrns();
@@ -137,7 +139,7 @@ export default function GrnListPage() {
         title="Goods Receipt Notes"
         description="Manage goods received against deliveries"
       >
-        <Button render={<Link href="/grn/new" />}>
+        <Button variant="brand" render={<Link href="/grn/new" />}>
           <Plus className="mr-1.5 size-4" />
           New GRN
         </Button>
@@ -177,6 +179,7 @@ export default function GrnListPage() {
             data={grns}
             searchKey="deliveryNumber"
             searchPlaceholder="Filter by delivery..."
+            onRowClick={(row) => router.push(`/grn/${row.id}`)}
           />
         </CardContent>
       </Card>

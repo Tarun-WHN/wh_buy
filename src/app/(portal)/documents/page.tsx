@@ -205,7 +205,7 @@ export default function DocumentsPage() {
         title="Document Management"
         description="Upload and manage documents"
       >
-        <Button onClick={openUploadDialog}>
+        <Button variant="brand" onClick={openUploadDialog}>
           <Plus className="mr-2 size-4" />
           Upload Document
         </Button>

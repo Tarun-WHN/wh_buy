@@ -32,6 +32,9 @@ interface DataTableProps<TData, TValue> {
   data: TData[];
   searchKey?: string;
   searchPlaceholder?: string;
+  /** When provided, each row becomes clickable and calls this with the row data.
+   *  Clicks on buttons/links/inputs inside a row are ignored. */
+  onRowClick?: (row: TData) => void;
 }
 
 export function DataTable<TData, TValue>({
@@ -39,6 +42,7 @@ export function DataTable<TData, TValue>({
   data,
   searchKey,
   searchPlaceholder = "Search...",
+  onRowClick,
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
@@ -115,6 +119,21 @@ export function DataTable<TData, TValue>({
                 <TableRow
                   key={row.id}
                   data-state={row.getIsSelected() && "selected"}
+                  className={onRowClick ? "cursor-pointer" : undefined}
+                  onClick={
+                    onRowClick
+                      ? (e) => {
+                          // Ignore clicks on interactive elements inside the row.
+                          if (
+                            (e.target as HTMLElement).closest(
+                              'button, a, input, select, textarea, [role="menuitem"], [data-no-row-click]'
+                            )
+                          )
+                            return;
+                          onRowClick(row.original);
+                        }
+                      : undefined
+                  }
                 >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell key={cell.id}>

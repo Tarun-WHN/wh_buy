@@ -284,7 +284,7 @@ export default function LocationsPage() {
         title="Location Master"
         description="Manage your organization's location hierarchy"
       >
-        <Button onClick={() => handleAdd("company")}>
+        <Button variant="brand" onClick={() => handleAdd("company")}>
           <Plus className="mr-1.5 size-4" />
           Add Company
         </Button>

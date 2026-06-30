@@ -110,7 +110,7 @@ export function CreateTaxonomyButton({
     <>
       <Button
         type="button"
-        variant="outline"
+        variant="brand"
         size="icon-sm"
         disabled={disabled}
         title={`New ${LABELS[level]}`}

@@ -3,6 +3,7 @@
 import * as React from "react";
 import { useState, useEffect, useTransition } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Plus, Upload } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
@@ -94,6 +95,7 @@ const columns: ColumnDef<VendorRow, unknown>[] = [
 // ============================================================
 
 export default function VendorsPage() {
+  const router = useRouter();
   const [vendors, setVendors] = useState<VendorRow[]>([]);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
@@ -142,7 +144,7 @@ export default function VendorsPage() {
           <Upload className="mr-1.5 size-4" />
           Import CSV
         </Button>
-        <Button render={<Link href="/masters/vendors/new" />}>
+        <Button variant="brand" render={<Link href="/masters/vendors/new" />}>
           <Plus className="mr-1.5 size-4" />
           Add Vendor
         </Button>
@@ -183,6 +185,7 @@ export default function VendorsPage() {
             data={vendors}
             searchKey="name"
             searchPlaceholder="Filter by name..."
+            onRowClick={(row) => router.push(`/masters/vendors/${row.id}`)}
           />
         </CardContent>
       </Card>

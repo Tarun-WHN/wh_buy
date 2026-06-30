@@ -3,6 +3,7 @@
 import * as React from "react";
 import { useState, useEffect, useTransition } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Plus } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
@@ -96,6 +97,7 @@ const columns: ColumnDef<ProductRow, unknown>[] = [
 // ============================================================
 
 export default function ProductsPage() {
+  const router = useRouter();
   const [products, setProducts] = useState<ProductRow[]>([]);
   const [categories, setCategories] = useState<CategoryOption[]>([]);
   const [search, setSearch] = useState("");
@@ -154,7 +156,7 @@ export default function ProductsPage() {
         title="Product Master"
         description="Manage your product catalog"
       >
-        <Button render={<Link href="/masters/products/new" />}>
+        <Button variant="brand" render={<Link href="/masters/products/new" />}>
           <Plus className="mr-1.5 size-4" />
           Add Product
         </Button>
@@ -193,6 +195,7 @@ export default function ProductsPage() {
             data={products}
             searchKey="name"
             searchPlaceholder="Filter by name..."
+            onRowClick={(row) => router.push(`/masters/products/${row.id}`)}
           />
         </CardContent>
       </Card>

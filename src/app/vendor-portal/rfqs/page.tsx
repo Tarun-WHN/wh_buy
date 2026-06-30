@@ -3,6 +3,7 @@
 import * as React from "react";
 import { useState, useEffect, useTransition } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card, CardContent } from "@/components/ui/card";
@@ -84,6 +85,7 @@ const columns: ColumnDef<VendorRfqRow, unknown>[] = [
 export default function VendorRfqListPage() {
   const [rfqs, setRfqs] = useState<VendorRfqRow[]>([]);
   const [isPending, startTransition] = useTransition();
+  const router = useRouter();
 
   useEffect(() => {
     startTransition(async () => {
@@ -112,6 +114,7 @@ export default function VendorRfqListPage() {
             data={rfqs}
             searchKey="rfqTitle"
             searchPlaceholder="Search by title..."
+            onRowClick={(row) => router.push(`/vendor-portal/rfqs/${row.rfqId}`)}
           />
         </CardContent>
       </Card>

@@ -3,6 +3,7 @@
 import * as React from "react";
 import { useState, useEffect, useTransition } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Plus } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
@@ -91,6 +92,7 @@ const columns: ColumnDef<RfqRow, unknown>[] = [
 // ============================================================
 
 export default function RfqListPage() {
+  const router = useRouter();
   const [rfqs, setRfqs] = useState<RfqRow[]>([]);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
@@ -134,7 +136,7 @@ export default function RfqListPage() {
         title="RFQs"
         description="Manage requests for quotation"
       >
-        <Button render={<Link href="/rfq/new" />}>
+        <Button variant="brand" render={<Link href="/rfq/new" />}>
           <Plus className="mr-1.5 size-4" />
           New RFQ
         </Button>
@@ -174,6 +176,7 @@ export default function RfqListPage() {
             data={rfqs}
             searchKey="title"
             searchPlaceholder="Filter by title..."
+            onRowClick={(row) => router.push(`/rfq/${row.id}`)}
           />
         </CardContent>
       </Card>

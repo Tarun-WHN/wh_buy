@@ -3,6 +3,7 @@
 import * as React from "react";
 import { useState, useEffect, useTransition } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card, CardContent } from "@/components/ui/card";
@@ -109,6 +110,7 @@ export default function DeliveryListPage() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [isPending, startTransition] = useTransition();
+  const router = useRouter();
 
   useEffect(() => {
     loadDeliveries();
@@ -183,6 +185,7 @@ export default function DeliveryListPage() {
             data={deliveries}
             searchKey="vendorName"
             searchPlaceholder="Filter by vendor..."
+            onRowClick={(row) => router.push(`/delivery/${row.id}`)}
           />
         </CardContent>
       </Card>
