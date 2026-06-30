@@ -26,6 +26,8 @@ import {
   BarChart3,
   Settings,
   Store,
+  FolderTree,
+  Gauge,
   ChevronDown,
   CheckCircle2,
 } from "lucide-react";
@@ -241,6 +243,14 @@ const MODULES: ModuleGuide[] = [
     how: "Add products with their SKU and unit of measure. You'll pick from this list when raising requirements.",
   },
   {
+    slug: "categories",
+    icon: FolderTree,
+    name: "Masters → Categories",
+    accent: "#6366f1",
+    what: "The Category → Sub-category → Product Group tree your products are organised under.",
+    how: "Manage the full tree here, or create entries on the fly with the “+” buttons in the product form.",
+  },
+  {
     slug: "vendors",
     icon: Users,
     name: "Masters → Vendors",
@@ -263,6 +273,14 @@ const MODULES: ModuleGuide[] = [
     accent: "#06b6d4",
     what: "An ask to vendors: 'what's your price for these items?'",
     how: "Create an RFQ from a requirement, select vendors, and send. Compare the quotes that come back side-by-side.",
+  },
+  {
+    slug: "vendor-performance",
+    icon: Gauge,
+    name: "Vendor Performance",
+    accent: "#0d9488",
+    what: "A scorecard of how each vendor performs on quotation speed, pricing, delivery and quality.",
+    how: "Click “Sync from records” to auto-build the log from quotes & deliveries, add manual rows, and read each vendor's weighted rating.",
   },
   {
     slug: "purchase-orders",

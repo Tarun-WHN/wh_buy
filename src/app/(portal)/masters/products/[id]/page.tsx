@@ -57,6 +57,9 @@ interface ProductData {
   hsnCode: string | null;
   gstPercent: number;
   specifications: string | null;
+  modelNumber: string | null;
+  size: string | null;
+  brand: string | null;
   productGroupId: string;
   isActive: boolean;
   currentVersion: number;
@@ -106,6 +109,9 @@ export default function ProductDetailPage({
   const [hsnCode, setHsnCode] = useState("");
   const [gstPercent, setGstPercent] = useState("0");
   const [specifications, setSpecifications] = useState("");
+  const [modelNumber, setModelNumber] = useState("");
+  const [size, setSize] = useState("");
+  const [brand, setBrand] = useState("");
   const [changeReason, setChangeReason] = useState("");
   const [tab, setTab] = useState<"details" | "vendors" | "versions">("details");
 
@@ -138,6 +144,9 @@ export default function ProductDetailPage({
         setHsnCode(p.hsnCode || "");
         setGstPercent(String(p.gstPercent));
         setSpecifications(p.specifications || "");
+        setModelNumber(p.modelNumber || "");
+        setSize(p.size || "");
+        setBrand(p.brand || "");
         setProductGroupId(p.productGroupId);
 
         // Resolve category/subcategory from the product group
@@ -189,6 +198,9 @@ export default function ProductDetailPage({
         hsnCode: hsnCode || undefined,
         gstPercent: parseFloat(gstPercent) || 0,
         specifications: specifications || undefined,
+        modelNumber: modelNumber || undefined,
+        size: size || undefined,
+        brand: brand || undefined,
         productGroupId,
         changeReason: changeReason || undefined,
       });
@@ -432,6 +444,36 @@ export default function ProductDetailPage({
                     step="0.01"
                     value={gstPercent}
                     onChange={(e) => setGstPercent(e.target.value)}
+                  />
+                </div>
+
+                <div className="grid gap-2">
+                  <Label htmlFor="brand">Brand</Label>
+                  <Input
+                    id="brand"
+                    value={brand}
+                    onChange={(e) => setBrand(e.target.value)}
+                    placeholder="e.g. Godrej, Local Fabrication"
+                  />
+                </div>
+
+                <div className="grid gap-2">
+                  <Label htmlFor="modelNumber">Model Number</Label>
+                  <Input
+                    id="modelNumber"
+                    value={modelNumber}
+                    onChange={(e) => setModelNumber(e.target.value)}
+                    placeholder="Model / part number"
+                  />
+                </div>
+
+                <div className="grid gap-2">
+                  <Label htmlFor="size">Size</Label>
+                  <Input
+                    id="size"
+                    value={size}
+                    onChange={(e) => setSize(e.target.value)}
+                    placeholder="e.g. 6x3x1.5 ft"
                   />
                 </div>
 

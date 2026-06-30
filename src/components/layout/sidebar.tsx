@@ -20,6 +20,7 @@ import {
   FileText,
   ShoppingCart,
   ClipboardList,
+  Gauge,
   Truck,
   ClipboardCheck,
   Receipt,
@@ -90,6 +91,12 @@ const NAV_GROUPS: NavGroup[] = [
         href: "/rfq",
         icon: FileText,
         permission: PERMISSIONS.RFQ_CREATE,
+      },
+      {
+        label: "Vendor Performance",
+        href: "/vendor-performance",
+        icon: Gauge,
+        permission: PERMISSIONS.VENDOR_MANAGE,
       },
       {
         label: "Purchase Orders",

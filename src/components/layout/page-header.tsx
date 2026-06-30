@@ -10,10 +10,12 @@ import { HelpCircle } from "lucide-react";
 const HELP_TOPICS: [string, string][] = [
   ["/masters/locations", "locations"],
   ["/masters/products", "products"],
+  ["/masters/categories", "categories"],
   ["/masters/vendors", "vendors"],
   ["/masters", "products"],
   ["/requirements", "requirements"],
   ["/rfq", "rfq"],
+  ["/vendor-performance", "vendor-performance"],
   ["/purchase-orders", "purchase-orders"],
   ["/delivery", "deliveries"],
   ["/grn", "grn"],

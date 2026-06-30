@@ -212,6 +212,9 @@ model Product {
   hsnCode        String?
   gstPercent     Float        @default(0)
   specifications String?
+  modelNumber    String?
+  size           String?
+  brand          String?
   productGroup   ProductGroup @relation(fields: [productGroupId], references: [id])
   productGroupId String
   currentVersion Int          @default(1)
@@ -286,6 +289,7 @@ model Vendor {
   invoices         Invoice[]
   scorecards       VendorScorecard[]
   documents        Document[]
+  performanceEntries VendorPerformanceEntry[]
 }
 
 model VendorProduct {
@@ -734,6 +738,40 @@ model VendorScorecard {
   updatedAt     DateTime @updatedAt
 
   @@unique([vendorId, period])
+}
+
+// ============================================================
+// VENDOR PERFORMANCE
+// ============================================================
+
+// One row in the Vendor Performance log. AUTO rows are synced from
+// quotations (vendor x RFQ); MANUAL rows are added by the team. Pure
+// record-derived fields are refreshed on sync; manual fields
+// (modelMake, escalations, remarks) are preserved across syncs.
+model VendorPerformanceEntry {
+  id                    String    @id @default(cuid())
+  source                String    @default("AUTO") // AUTO | MANUAL
+  quotationId           String?   @unique
+  vendor                Vendor    @relation(fields: [vendorId], references: [id])
+  vendorId              String
+  vendorName            String
+  rfqCode               String?
+  rfqDate               DateTime?
+  submissionDeadline    DateTime?
+  quoteSubmissionDate   DateTime?
+  quotedRate            Float?
+  productLabel          String?
+  pricingLevel          Int?
+  scheduledDeliveryDate DateTime?
+  actualDeliveryDate    DateTime?
+  modelMake             String?
+  firstEscalationDate   DateTime?
+  manualEscalationCount Int       @default(0)
+  remarks               String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@index([vendorId])
 }
 
 // ============================================================

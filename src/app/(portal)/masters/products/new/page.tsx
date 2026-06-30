@@ -64,6 +64,9 @@ export default function NewProductPage() {
   const [hsnCode, setHsnCode] = useState("");
   const [gstPercent, setGstPercent] = useState("0");
   const [specifications, setSpecifications] = useState("");
+  const [modelNumber, setModelNumber] = useState("");
+  const [size, setSize] = useState("");
+  const [brand, setBrand] = useState("");
 
   useEffect(() => {
     startTransition(async () => {
@@ -117,6 +120,9 @@ export default function NewProductPage() {
         hsnCode: hsnCode || undefined,
         gstPercent: parseFloat(gstPercent) || 0,
         specifications: specifications || undefined,
+        modelNumber: modelNumber || undefined,
+        size: size || undefined,
+        brand: brand || undefined,
         productGroupId,
       });
       toast.success("Product created successfully");
@@ -330,6 +336,39 @@ export default function NewProductPage() {
                 value={gstPercent}
                 onChange={(e) => setGstPercent(e.target.value)}
                 placeholder="0"
+              />
+            </div>
+
+            {/* Brand */}
+            <div className="grid gap-2">
+              <Label htmlFor="brand">Brand</Label>
+              <Input
+                id="brand"
+                value={brand}
+                onChange={(e) => setBrand(e.target.value)}
+                placeholder="e.g. Godrej, Local Fabrication"
+              />
+            </div>
+
+            {/* Model Number */}
+            <div className="grid gap-2">
+              <Label htmlFor="modelNumber">Model Number</Label>
+              <Input
+                id="modelNumber"
+                value={modelNumber}
+                onChange={(e) => setModelNumber(e.target.value)}
+                placeholder="Model / part number"
+              />
+            </div>
+
+            {/* Size */}
+            <div className="grid gap-2">
+              <Label htmlFor="size">Size</Label>
+              <Input
+                id="size"
+                value={size}
+                onChange={(e) => setSize(e.target.value)}
+                placeholder="e.g. 6x3x1.5 ft"
               />
             </div>
 
