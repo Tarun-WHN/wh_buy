@@ -24,11 +24,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { UOM_OPTIONS } from "@/lib/constants";
-import { formatDateTime } from "@/lib/utils";
+import { cn, formatDateTime } from "@/lib/utils";
 import { getProduct, getCategories, updateProduct } from "@/actions/product.actions";
+import { CreateTaxonomyButton } from "@/components/masters/create-taxonomy-button";
+import { ProductVendors } from "@/components/masters/product-vendors";
 
 // ============================================================
 // TYPES
@@ -106,6 +107,12 @@ export default function ProductDetailPage({
   const [gstPercent, setGstPercent] = useState("0");
   const [specifications, setSpecifications] = useState("");
   const [changeReason, setChangeReason] = useState("");
+  const [tab, setTab] = useState<"details" | "vendors" | "versions">("details");
+
+  async function reloadCategories() {
+    const cats = await getCategories();
+    setCategories(cats as CategoryData[]);
+  }
 
   useEffect(() => {
     loadData();
@@ -223,16 +230,35 @@ export default function ProductDetailPage({
         </Button>
       </PageHeader>
 
-      <Tabs defaultValue="details">
-        <TabsList>
-          <TabsTrigger value="details">Details</TabsTrigger>
-          <TabsTrigger value="versions">Version History</TabsTrigger>
-        </TabsList>
+      <div className="space-y-4">
+        <div className="inline-flex h-9 items-center gap-1 rounded-lg bg-muted p-1 text-sm">
+          {(
+            [
+              ["details", "Details"],
+              ["vendors", "Vendors & Pricing"],
+              ["versions", "Version History"],
+            ] as const
+          ).map(([key, label]) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() => setTab(key)}
+              className={cn(
+                "rounded-md px-3 py-1 font-medium transition-colors",
+                tab === key
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
 
         {/* ============================================================ */}
         {/* DETAILS TAB */}
         {/* ============================================================ */}
-        <TabsContent value="details">
+        {tab === "details" && (
           <form onSubmit={handleSave}>
             <Card>
               <CardHeader>
@@ -265,76 +291,110 @@ export default function ProductDetailPage({
 
                 <div className="grid gap-2">
                   <Label>Category</Label>
-                  <Select
-                    value={categoryId}
-                    onValueChange={handleCategoryChange}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select category">
-                        {(value) => {
-                          const cat = categories.find((c) => c.id === value);
-                          return cat ? cat.name : "Select category";
-                        }}
-                      </SelectValue>
-                    </SelectTrigger>
-                    <SelectContent>
-                      {categories.map((cat) => (
-                        <SelectItem key={cat.id} value={cat.id}>
-                          {cat.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <div className="flex items-center gap-2">
+                    <Select
+                      value={categoryId}
+                      onValueChange={handleCategoryChange}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Select category">
+                          {(value) => {
+                            const cat = categories.find((c) => c.id === value);
+                            return cat ? cat.name : "Select category";
+                          }}
+                        </SelectValue>
+                      </SelectTrigger>
+                      <SelectContent>
+                        {categories.map((cat) => (
+                          <SelectItem key={cat.id} value={cat.id}>
+                            {cat.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <CreateTaxonomyButton
+                      level="category"
+                      onCreated={async (cid) => {
+                        await reloadCategories();
+                        setCategoryId(cid);
+                        setSubcategoryId("");
+                        setProductGroupId("");
+                      }}
+                    />
+                  </div>
                 </div>
 
                 <div className="grid gap-2">
                   <Label>Subcategory</Label>
-                  <Select
-                    value={subcategoryId}
-                    onValueChange={handleSubcategoryChange}
-                    disabled={!categoryId}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select subcategory">
-                        {(value) => {
-                          const sub = subcategories.find((s) => s.id === value);
-                          return sub ? sub.name : "Select subcategory";
-                        }}
-                      </SelectValue>
-                    </SelectTrigger>
-                    <SelectContent>
-                      {subcategories.map((sub) => (
-                        <SelectItem key={sub.id} value={sub.id}>
-                          {sub.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <div className="flex items-center gap-2">
+                    <Select
+                      value={subcategoryId}
+                      onValueChange={handleSubcategoryChange}
+                      disabled={!categoryId}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Select subcategory">
+                          {(value) => {
+                            const sub = subcategories.find((s) => s.id === value);
+                            return sub ? sub.name : "Select subcategory";
+                          }}
+                        </SelectValue>
+                      </SelectTrigger>
+                      <SelectContent>
+                        {subcategories.map((sub) => (
+                          <SelectItem key={sub.id} value={sub.id}>
+                            {sub.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <CreateTaxonomyButton
+                      level="subcategory"
+                      parentId={categoryId}
+                      disabled={!categoryId}
+                      onCreated={async (sid) => {
+                        await reloadCategories();
+                        setSubcategoryId(sid);
+                        setProductGroupId("");
+                      }}
+                    />
+                  </div>
                 </div>
 
                 <div className="grid gap-2">
                   <Label>Product Group</Label>
-                  <Select
-                    value={productGroupId}
-                    onValueChange={(val) => setProductGroupId(val ?? "")}
-                    disabled={!subcategoryId}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select product group">
-                        {(value) => {
-                          const pg = productGroups.find((p) => p.id === value);
-                          return pg ? pg.name : "Select product group";
-                        }}
-                      </SelectValue>
-                    </SelectTrigger>
-                    <SelectContent>
-                      {productGroups.map((pg) => (
-                        <SelectItem key={pg.id} value={pg.id}>
-                          {pg.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <div className="flex items-center gap-2">
+                    <Select
+                      value={productGroupId}
+                      onValueChange={(val) => setProductGroupId(val ?? "")}
+                      disabled={!subcategoryId}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Select product group">
+                          {(value) => {
+                            const pg = productGroups.find((p) => p.id === value);
+                            return pg ? pg.name : "Select product group";
+                          }}
+                        </SelectValue>
+                      </SelectTrigger>
+                      <SelectContent>
+                        {productGroups.map((pg) => (
+                          <SelectItem key={pg.id} value={pg.id}>
+                            {pg.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <CreateTaxonomyButton
+                      level="group"
+                      parentId={subcategoryId}
+                      disabled={!subcategoryId}
+                      onCreated={async (gid) => {
+                        await reloadCategories();
+                        setProductGroupId(gid);
+                      }}
+                    />
+                  </div>
                 </div>
 
                 <div className="grid gap-2">
@@ -416,12 +476,19 @@ export default function ProductDetailPage({
               </Button>
             </div>
           </form>
-        </TabsContent>
+        )}
+
+        {/* ============================================================ */}
+        {/* VENDORS & PRICING TAB */}
+        {/* ============================================================ */}
+        {tab === "vendors" && (
+          <ProductVendors productId={id} productUom={uom} />
+        )}
 
         {/* ============================================================ */}
         {/* VERSION HISTORY TAB */}
         {/* ============================================================ */}
-        <TabsContent value="versions">
+        {tab === "versions" && (
           <Card>
             <CardHeader>
               <CardTitle className="text-base">Version History</CardTitle>
@@ -464,8 +531,8 @@ export default function ProductDetailPage({
               )}
             </CardContent>
           </Card>
-        </TabsContent>
-      </Tabs>
+        )}
+      </div>
     </div>
   );
 }

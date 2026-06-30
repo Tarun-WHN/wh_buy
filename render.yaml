@@ -22,6 +22,10 @@ services:
     envVars:
       - key: DATABASE_URL
         value: file:/data/prod.db
+      # Uploaded files (vendor quotes, GRN photos, etc.) live on the persistent
+      # disk so they survive redeploys. Served via /api/files/<name>.
+      - key: UPLOAD_DIR
+        value: /data/uploads
       - key: NEXTAUTH_URL
         value: https://wh-buy-e3ni.onrender.com
       - key: NEXTAUTH_SECRET

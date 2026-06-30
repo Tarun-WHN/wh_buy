@@ -289,11 +289,21 @@ model Vendor {
 }
 
 model VendorProduct {
-  id        String  @id @default(cuid())
-  vendor    Vendor  @relation(fields: [vendorId], references: [id])
-  vendorId  String
-  product   Product @relation(fields: [productId], references: [id])
-  productId String
+  id            String    @id @default(cuid())
+  vendor        Vendor    @relation(fields: [vendorId], references: [id])
+  vendorId      String
+  product       Product   @relation(fields: [productId], references: [id])
+  productId     String
+  rate          Float?
+  currency      String    @default("INR")
+  moq           Float?
+  leadTimeDays  Int?
+  validUntil    DateTime?
+  quoteFilePath String?
+  quoteFileName String?
+  remarks       String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
   @@unique([vendorId, productId])
 }

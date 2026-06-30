@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/select";
 import { UOM_OPTIONS } from "@/lib/constants";
 import { createProduct, getCategories } from "@/actions/product.actions";
+import { CreateTaxonomyButton } from "@/components/masters/create-taxonomy-button";
 
 // ============================================================
 // TYPES
@@ -82,6 +83,11 @@ export default function NewProductPage() {
     (s) => s.id === subcategoryId
   );
   const productGroups = selectedSubcategory?.productGroups ?? [];
+
+  async function reloadCategories() {
+    const cats = await getCategories();
+    setCategories(cats as CategoryData[]);
+  }
 
   function handleCategoryChange(val: string | null) {
     setCategoryId(val ?? "");
@@ -173,23 +179,34 @@ export default function NewProductPage() {
               <Label>
                 Category <span className="text-destructive">*</span>
               </Label>
-              <Select value={categoryId} onValueChange={handleCategoryChange}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select category">
-                    {(value) => {
-                      const cat = categories.find((c) => c.id === value);
-                      return cat ? cat.name : "Select category";
-                    }}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  {categories.map((cat) => (
-                    <SelectItem key={cat.id} value={cat.id}>
-                      {cat.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div className="flex items-center gap-2">
+                <Select value={categoryId} onValueChange={handleCategoryChange}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select category">
+                      {(value) => {
+                        const cat = categories.find((c) => c.id === value);
+                        return cat ? cat.name : "Select category";
+                      }}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {categories.map((cat) => (
+                      <SelectItem key={cat.id} value={cat.id}>
+                        {cat.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <CreateTaxonomyButton
+                  level="category"
+                  onCreated={async (cid) => {
+                    await reloadCategories();
+                    setCategoryId(cid);
+                    setSubcategoryId("");
+                    setProductGroupId("");
+                  }}
+                />
+              </div>
             </div>
 
             {/* Subcategory */}
@@ -197,27 +214,39 @@ export default function NewProductPage() {
               <Label>
                 Subcategory <span className="text-destructive">*</span>
               </Label>
-              <Select
-                value={subcategoryId}
-                onValueChange={handleSubcategoryChange}
-                disabled={!categoryId}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select subcategory">
-                    {(value) => {
-                      const sub = subcategories.find((s) => s.id === value);
-                      return sub ? sub.name : "Select subcategory";
-                    }}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  {subcategories.map((sub) => (
-                    <SelectItem key={sub.id} value={sub.id}>
-                      {sub.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div className="flex items-center gap-2">
+                <Select
+                  value={subcategoryId}
+                  onValueChange={handleSubcategoryChange}
+                  disabled={!categoryId}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select subcategory">
+                      {(value) => {
+                        const sub = subcategories.find((s) => s.id === value);
+                        return sub ? sub.name : "Select subcategory";
+                      }}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {subcategories.map((sub) => (
+                      <SelectItem key={sub.id} value={sub.id}>
+                        {sub.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <CreateTaxonomyButton
+                  level="subcategory"
+                  parentId={categoryId}
+                  disabled={!categoryId}
+                  onCreated={async (sid) => {
+                    await reloadCategories();
+                    setSubcategoryId(sid);
+                    setProductGroupId("");
+                  }}
+                />
+              </div>
             </div>
 
             {/* Product Group */}
@@ -225,27 +254,38 @@ export default function NewProductPage() {
               <Label>
                 Product Group <span className="text-destructive">*</span>
               </Label>
-              <Select
-                value={productGroupId}
-                onValueChange={(val) => setProductGroupId(val ?? "")}
-                disabled={!subcategoryId}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select product group">
-                    {(value) => {
-                      const pg = productGroups.find((p) => p.id === value);
-                      return pg ? pg.name : "Select product group";
-                    }}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  {productGroups.map((pg) => (
-                    <SelectItem key={pg.id} value={pg.id}>
-                      {pg.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div className="flex items-center gap-2">
+                <Select
+                  value={productGroupId}
+                  onValueChange={(val) => setProductGroupId(val ?? "")}
+                  disabled={!subcategoryId}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select product group">
+                      {(value) => {
+                        const pg = productGroups.find((p) => p.id === value);
+                        return pg ? pg.name : "Select product group";
+                      }}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {productGroups.map((pg) => (
+                      <SelectItem key={pg.id} value={pg.id}>
+                        {pg.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <CreateTaxonomyButton
+                  level="group"
+                  parentId={subcategoryId}
+                  disabled={!subcategoryId}
+                  onCreated={async (gid) => {
+                    await reloadCategories();
+                    setProductGroupId(gid);
+                  }}
+                />
+              </div>
             </div>
 
             {/* UOM */}

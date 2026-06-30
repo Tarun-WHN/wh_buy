@@ -6,7 +6,7 @@ import {
   CardDescription,
   CardTitle,
 } from "@/components/ui/card";
-import { MapPin, Package, Users, ArrowRight } from "lucide-react";
+import { MapPin, Package, FolderTree, Users, ArrowRight } from "lucide-react";
 
 const SECTIONS = [
   {
@@ -22,6 +22,13 @@ const SECTIONS = [
     href: "/masters/products",
     icon: Package,
     accent: "#8B5CF6",
+  },
+  {
+    title: "Categories",
+    description: "Manage product categories, sub-categories and groups",
+    href: "/masters/categories",
+    icon: FolderTree,
+    accent: "#10B981",
   },
   {
     title: "Vendors",
@@ -40,7 +47,7 @@ export default function MastersPage() {
         description="Manage your organization's core reference data"
       />
 
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {SECTIONS.map((section) => (
           <Link key={section.href} href={section.href}>
             <Card className="group cursor-pointer transition-all hover:shadow-md hover:border-primary/30 relative overflow-hidden">

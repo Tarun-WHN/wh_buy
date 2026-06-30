@@ -5,15 +5,18 @@ import { writeFile, mkdir } from "fs/promises";
 import path from "path";
 
 const MAX_SIZE = 10 * 1024 * 1024; // 10MB
-const ALLOWED_TYPES = [
-  "application/pdf",
-  "image/jpeg",
-  "image/jpg",
-  "image/png",
-  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-  "text/csv",
+const ALLOWED_EXTENSIONS = [
+  "pdf",
+  "jpg",
+  "jpeg",
+  "png",
+  "webp",
+  "xlsx",
+  "xls",
+  "csv",
+  "doc",
+  "docx",
 ];
-const ALLOWED_EXTENSIONS = ["pdf", "jpg", "jpeg", "png", "xlsx", "csv"];
 
 export async function POST(request: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -46,8 +49,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Create upload directory
-    const uploadDir = path.join(process.cwd(), "public", "uploads");
+    // Create upload directory. On Render this points at the persistent disk
+    // (UPLOAD_DIR=/data/uploads) so files survive redeploys; locally it falls
+    // back to public/uploads.
+    const uploadDir =
+      process.env.UPLOAD_DIR || path.join(process.cwd(), "public", "uploads");
     await mkdir(uploadDir, { recursive: true });
 
     // Generate unique filename
@@ -61,7 +67,7 @@ export async function POST(request: NextRequest) {
     await writeFile(filePath, buffer);
 
     return NextResponse.json({
-      filePath: `/uploads/${uniqueFilename}`,
+      filePath: `/api/files/${uniqueFilename}`,
       fileName: file.name,
       fileSize: file.size,
       mimeType: file.type,

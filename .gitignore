@@ -51,3 +51,6 @@ next-env.d.ts
 
 # npm lockfile is platform-specific (native binaries); let each env resolve its own
 package-lock.json
+
+# uploaded files (served via /api/files; persisted on the Render disk)
+/public/uploads
