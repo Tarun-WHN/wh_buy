@@ -17,6 +17,9 @@ import {
   AlertTriangle,
   ShieldAlert,
   PiggyBank,
+  BarChart3,
+  Repeat,
+  Activity,
 } from "lucide-react";
 import {
   Dialog,
@@ -45,6 +48,9 @@ import {
   getKnowledgeVendors,
   getSupplierRiskScores,
   getSavingsOpportunities,
+  getSpendAnalytics,
+  getAlternateProducts,
+  getDemandForecast,
 } from "@/actions/intelligence.actions";
 
 const money = (n: number) =>
@@ -56,7 +62,10 @@ type Tab =
   | "recommendations"
   | "knowledge"
   | "risk"
-  | "savings";
+  | "savings"
+  | "spend"
+  | "alternates"
+  | "demand";
 
 export default function IntelligencePage() {
   const [tab, setTab] = useState<Tab>("consolidation");
@@ -77,6 +86,9 @@ export default function IntelligencePage() {
             ["knowledge", "Knowledge Graph"],
             ["risk", "Supplier Risk"],
             ["savings", "Savings Engine"],
+            ["spend", "Spend Analytics"],
+            ["alternates", "Alternates"],
+            ["demand", "Demand Forecast"],
           ] as const
         ).map(([key, label]) => (
           <button
@@ -101,7 +113,365 @@ export default function IntelligencePage() {
       {tab === "knowledge" && <KnowledgeGraph />}
       {tab === "risk" && <SupplierRisk />}
       {tab === "savings" && <SavingsEngine />}
+      {tab === "spend" && <SpendAnalytics />}
+      {tab === "alternates" && <Alternates />}
+      {tab === "demand" && <DemandForecast />}
     </div>
+  );
+}
+
+// ============================================================
+// CAPABILITY 11 — SPEND ANALYTICS
+// ============================================================
+
+function SpendAnalytics() {
+  const [data, setData] = useState<{
+    total: number;
+    poCount: number;
+    byVendor: { label: string; value: number }[];
+    byState: { label: string; value: number }[];
+    byCategory: { label: string; value: number }[];
+    byMonth: { label: string; value: number }[];
+  } | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    getSpendAnalytics()
+      .then((d) => setData(d as never))
+      .catch((e) => toast.error(e instanceof Error ? e.message : "Failed"))
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (loading)
+    return <p className="py-10 text-center text-sm text-muted-foreground">Loading…</p>;
+  if (!data || data.poCount === 0)
+    return (
+      <EmptyState
+        icon={BarChart3}
+        title="No spend recorded yet"
+        hint="Spend analytics populate from approved Purchase Orders — by vendor, category, state and month."
+      />
+    );
+
+  return (
+    <div className="space-y-4">
+      <Card>
+        <CardContent className="flex items-center gap-4 py-5">
+          <div className="flex size-11 items-center justify-center rounded-xl bg-[#1B2A4A]/10 text-[#1B2A4A]">
+            <BarChart3 className="size-5" />
+          </div>
+          <div>
+            <p className="text-sm text-muted-foreground">Total spend</p>
+            <p className="text-2xl font-bold">{money(data.total)}</p>
+            <p className="text-xs text-muted-foreground">Across {data.poCount} purchase orders</p>
+          </div>
+        </CardContent>
+      </Card>
+      <div className="grid gap-4 lg:grid-cols-2">
+        <BarBreakdown title="Spend by vendor" rows={data.byVendor} />
+        <BarBreakdown title="Spend by category" rows={data.byCategory} />
+        <BarBreakdown title="Spend by state" rows={data.byState} />
+        <BarBreakdown title="Spend by month" rows={data.byMonth} />
+      </div>
+    </div>
+  );
+}
+
+function BarBreakdown({
+  title,
+  rows,
+}: {
+  title: string;
+  rows: { label: string; value: number }[];
+}) {
+  const max = Math.max(1, ...rows.map((r) => r.value));
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-sm">{title}</CardTitle>
+      </CardHeader>
+      <CardContent>
+        {rows.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No data.</p>
+        ) : (
+          <div className="space-y-2">
+            {rows.map((r) => (
+              <div key={r.label}>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="truncate pr-2">{r.label}</span>
+                  <span className="shrink-0 font-medium">{money(r.value)}</span>
+                </div>
+                <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-muted">
+                  <div
+                    className="h-full bg-[#F47B20]"
+                    style={{ width: `${(r.value / max) * 100}%` }}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+// ============================================================
+// CAPABILITY 9 — ALTERNATE PRODUCTS
+// ============================================================
+
+function Alternates() {
+  const [products, setProducts] = useState<{ id: string; name: string; sku: string }[]>([]);
+  const [productSearch, setProductSearch] = useState("");
+  const [selected, setSelected] = useState<{ id: string; name: string } | null>(null);
+  const [data, setData] = useState<{
+    product: { name: string; sku: string; bestRate: number | null } | null;
+    alternates: {
+      id: string;
+      name: string;
+      sku: string;
+      brand: string | null;
+      compat: number;
+      bestRate: number | null;
+      vendorCount: number;
+      priceDiff: number | null;
+    }[];
+  } | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const t = setTimeout(() => {
+      getIntelligenceProducts(productSearch || undefined)
+        .then((p) => setProducts(p as never))
+        .catch(() => {});
+    }, 250);
+    return () => clearTimeout(t);
+  }, [productSearch]);
+
+  async function pick(p: { id: string; name: string }) {
+    setSelected(p);
+    setLoading(true);
+    try {
+      setData((await getAlternateProducts(p.id)) as never);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="grid gap-4 lg:grid-cols-[320px_1fr]">
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Pick a SKU</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="relative">
+            <Search className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={productSearch}
+              onChange={(e) => setProductSearch(e.target.value)}
+              placeholder="Search product…"
+              className="pl-8"
+            />
+          </div>
+          <div className="max-h-[420px] space-y-1 overflow-y-auto">
+            {products.map((p) => (
+              <button
+                key={p.id}
+                type="button"
+                onClick={() => pick(p)}
+                className={cn(
+                  "flex w-full flex-col rounded-md border px-3 py-2 text-left text-sm transition-colors hover:bg-muted",
+                  selected?.id === p.id && "border-[#F47B20] bg-[#F47B20]/5"
+                )}
+              >
+                <span className="font-medium">{p.name}</span>
+                <span className="text-xs text-muted-foreground">{p.sku}</span>
+              </button>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">
+            {selected ? `Alternates for ${selected.name}` : "Alternate products"}
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {!selected ? (
+            <EmptyState
+              icon={Repeat}
+              title="Select a SKU"
+              hint="See equivalent products in the same category — with a compatibility score, best rate, vendor count and price difference."
+            />
+          ) : loading ? (
+            <p className="py-8 text-center text-sm text-muted-foreground">Finding alternates…</p>
+          ) : !data || data.alternates.length === 0 ? (
+            <EmptyState
+              icon={Repeat}
+              title="No alternates found"
+              hint="No other products exist in this item's category yet."
+            />
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b text-left text-xs uppercase tracking-wider text-muted-foreground">
+                    <th className="px-3 py-2 font-medium">Product</th>
+                    <th className="px-3 py-2 font-medium">Brand</th>
+                    <th className="px-3 py-2 font-medium">Compatibility</th>
+                    <th className="px-3 py-2 font-medium">Best Rate</th>
+                    <th className="px-3 py-2 font-medium">Vendors</th>
+                    <th className="px-3 py-2 font-medium">Price Δ</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.alternates.map((a) => (
+                    <tr key={a.id} className="border-b last:border-0">
+                      <td className="px-3 py-2.5">
+                        <div className="font-medium">{a.name}</div>
+                        <div className="text-xs text-muted-foreground">{a.sku}</div>
+                      </td>
+                      <td className="px-3 py-2.5 text-muted-foreground">{a.brand || "—"}</td>
+                      <td className="px-3 py-2.5">
+                        <Badge
+                          variant="secondary"
+                          className={cn(
+                            a.compat >= 90
+                              ? "text-emerald-700"
+                              : a.compat >= 70
+                                ? "text-amber-700"
+                                : "text-muted-foreground"
+                          )}
+                        >
+                          {a.compat}%
+                        </Badge>
+                      </td>
+                      <td className="px-3 py-2.5">{a.bestRate != null ? money(a.bestRate) : "—"}</td>
+                      <td className="px-3 py-2.5 text-muted-foreground">{a.vendorCount}</td>
+                      <td className="px-3 py-2.5">
+                        {a.priceDiff == null ? (
+                          "—"
+                        ) : a.priceDiff < 0 ? (
+                          <span className="text-emerald-600">{money(a.priceDiff)}</span>
+                        ) : a.priceDiff > 0 ? (
+                          <span className="text-red-600">+{money(a.priceDiff)}</span>
+                        ) : (
+                          "—"
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+// ============================================================
+// CAPABILITY 17 — DEMAND FORECAST
+// ============================================================
+
+function DemandForecast() {
+  const [rows, setRows] = useState<
+    {
+      productId: string;
+      name: string;
+      sku: string;
+      uom: string;
+      events: number;
+      totalQty: number;
+      monthlyQty: number;
+      lastPurchase: string;
+      nextExpected: string | null;
+      movement: string;
+    }[]
+  >([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    getDemandForecast()
+      .then((r) => setRows(r as never))
+      .catch((e) => toast.error(e instanceof Error ? e.message : "Failed"))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const fmt = (iso: string | null) =>
+    iso ? new Date(iso).toLocaleDateString("en-IN") : "—";
+  const moveStyle: Record<string, string> = {
+    "Fast-moving": "text-emerald-700",
+    Steady: "text-amber-700",
+    "Slow-moving": "text-muted-foreground",
+  };
+
+  if (loading)
+    return <p className="py-10 text-center text-sm text-muted-foreground">Forecasting…</p>;
+  if (rows.length === 0)
+    return (
+      <EmptyState
+        icon={Activity}
+        title="Not enough history to forecast"
+        hint="Demand signals build from procurement activity (quotes, POs, rates). The more you record, the sharper the forecast."
+      />
+    );
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base">Demand signal by product</CardTitle>
+        <p className="text-xs text-muted-foreground">
+          Based on procurement activity frequency. Fast-moving items are frequently
+          sourced; slow-moving are rare or stale.
+        </p>
+      </CardHeader>
+      <CardContent>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b text-left text-xs uppercase tracking-wider text-muted-foreground">
+                <th className="px-3 py-2 font-medium">Product</th>
+                <th className="px-3 py-2 font-medium">Movement</th>
+                <th className="px-3 py-2 font-medium">Events</th>
+                <th className="px-3 py-2 font-medium">Total Qty</th>
+                <th className="px-3 py-2 font-medium">~Monthly</th>
+                <th className="px-3 py-2 font-medium">Last</th>
+                <th className="px-3 py-2 font-medium">Next expected</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r) => (
+                <tr key={r.productId} className="border-b last:border-0">
+                  <td className="px-3 py-2.5">
+                    <div className="font-medium">{r.name}</div>
+                    <div className="text-xs text-muted-foreground">{r.sku}</div>
+                  </td>
+                  <td className="px-3 py-2.5">
+                    <span className={cn("font-medium", moveStyle[r.movement])}>
+                      {r.movement}
+                    </span>
+                  </td>
+                  <td className="px-3 py-2.5 text-muted-foreground">{r.events}</td>
+                  <td className="px-3 py-2.5 text-muted-foreground">
+                    {r.totalQty} {r.uom}
+                  </td>
+                  <td className="px-3 py-2.5 text-muted-foreground">{r.monthlyQty}</td>
+                  <td className="px-3 py-2.5 text-muted-foreground">{fmt(r.lastPurchase)}</td>
+                  <td className="px-3 py-2.5 text-muted-foreground">{fmt(r.nextExpected)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 

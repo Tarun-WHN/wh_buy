@@ -1138,3 +1138,210 @@ export async function getSavingsOpportunities() {
   // creep/bulk are indicative and shown separately, not double-counted).
   return { totalEstimated: overpricedTotal, categories };
 }
+
+// ============================================================
+// CAPABILITY 11 — SPEND ANALYTICS
+// ============================================================
+
+export async function getSpendAnalytics() {
+  await requireView();
+  const [pos, poItems, products, vendors] = await Promise.all([
+    prisma.purchaseOrder.findMany({
+      where: { deletedAt: null },
+      select: {
+        vendorId: true,
+        totalAmount: true,
+        createdAt: true,
+        warehouse: {
+          select: { city: { select: { state: { select: { name: true } } } } },
+        },
+      },
+    }),
+    prisma.poLineItem.findMany({ select: { productId: true, totalPrice: true } }),
+    prisma.product.findMany({
+      select: {
+        id: true,
+        productGroup: {
+          select: { subcategory: { select: { category: { select: { name: true } } } } },
+        },
+      },
+    }),
+    prisma.vendor.findMany({ select: { id: true, name: true } }),
+  ]);
+
+  const vmap = new Map(vendors.map((v) => [v.id, v.name]));
+  const catOf = new Map(
+    products.map((p) => [
+      p.id,
+      p.productGroup?.subcategory?.category?.name ?? "Uncategorised",
+    ])
+  );
+
+  const total = pos.reduce((a, p) => a + p.totalAmount, 0);
+  const sumBy = <T>(arr: T[], key: (x: T) => string, val: (x: T) => number) => {
+    const m = new Map<string, number>();
+    for (const x of arr) m.set(key(x), (m.get(key(x)) ?? 0) + val(x));
+    return [...m.entries()]
+      .map(([label, value]) => ({ label, value }))
+      .sort((a, b) => b.value - a.value);
+  };
+
+  return {
+    total,
+    poCount: pos.length,
+    byVendor: sumBy(pos, (p) => vmap.get(p.vendorId) ?? "?", (p) => p.totalAmount).slice(0, 10),
+    byState: sumBy(pos, (p) => p.warehouse?.city?.state?.name ?? "Unknown", (p) => p.totalAmount),
+    byCategory: sumBy(poItems, (it) => catOf.get(it.productId) ?? "Uncategorised", (it) => it.totalPrice).slice(0, 10),
+    byMonth: sumBy(
+      pos,
+      (p) => `${p.createdAt.getFullYear()}-${String(p.createdAt.getMonth() + 1).padStart(2, "0")}`,
+      (p) => p.totalAmount
+    ).sort((a, b) => a.label.localeCompare(b.label)),
+  };
+}
+
+// ============================================================
+// CAPABILITY 9 — ALTERNATE PRODUCT SUGGESTIONS
+// ============================================================
+
+export async function getAlternateProducts(productId: string) {
+  await requireView();
+  if (!productId) return { product: null, alternates: [] };
+
+  const product = await prisma.product.findUnique({
+    where: { id: productId },
+    select: {
+      id: true,
+      name: true,
+      sku: true,
+      productGroupId: true,
+      productGroup: {
+        select: { subcategoryId: true, subcategory: { select: { categoryId: true } } },
+      },
+    },
+  });
+  if (!product) return { product: null, alternates: [] };
+
+  const catId = product.productGroup?.subcategory?.categoryId;
+  const candidates = await prisma.product.findMany({
+    where: {
+      deletedAt: null,
+      id: { not: productId },
+      productGroup: { subcategory: { categoryId: catId } },
+    },
+    select: {
+      id: true,
+      name: true,
+      sku: true,
+      brand: true,
+      productGroupId: true,
+      productGroup: { select: { subcategoryId: true } },
+    },
+  });
+
+  // best rate + vendor count from all price points
+  const points = await gatherPricePoints();
+  const byProd = new Map<string, PricePoint[]>();
+  for (const p of points) {
+    const a = byProd.get(p.productId) ?? [];
+    a.push(p);
+    byProd.set(p.productId, a);
+  }
+  const bestRate = (id: string) => {
+    const pts = byProd.get(id);
+    return pts && pts.length ? Math.min(...pts.map((p) => p.price)) : null;
+  };
+  const vcount = (id: string) => new Set((byProd.get(id) ?? []).map((p) => p.vendorId)).size;
+
+  const selRate = bestRate(productId);
+  const alternates = candidates
+    .map((c) => {
+      const compat =
+        c.productGroupId === product.productGroupId
+          ? 90
+          : c.productGroup?.subcategoryId === product.productGroup?.subcategoryId
+            ? 70
+            : 50;
+      const rate = bestRate(c.id);
+      return {
+        id: c.id,
+        name: c.name,
+        sku: c.sku,
+        brand: c.brand,
+        compat,
+        bestRate: rate,
+        vendorCount: vcount(c.id),
+        priceDiff: rate != null && selRate != null ? rate - selRate : null,
+      };
+    })
+    .sort(
+      (a, b) => b.compat - a.compat || (a.bestRate ?? Infinity) - (b.bestRate ?? Infinity)
+    );
+
+  return {
+    product: { id: product.id, name: product.name, sku: product.sku, bestRate: selRate },
+    alternates,
+  };
+}
+
+// ============================================================
+// CAPABILITY 17 — DEMAND FORECASTING
+// ============================================================
+
+export async function getDemandForecast() {
+  await requireView();
+  const points = await gatherPricePoints();
+  if (points.length === 0) return [];
+
+  const byProd = new Map<string, PricePoint[]>();
+  for (const p of points) {
+    const a = byProd.get(p.productId) ?? [];
+    a.push(p);
+    byProd.set(p.productId, a);
+  }
+  const ids = [...byProd.keys()];
+  const products = await prisma.product.findMany({
+    where: { id: { in: ids } },
+    select: { id: true, name: true, sku: true, uom: true },
+  });
+  const pmap = new Map(products.map((p) => [p.id, p]));
+  const now = Date.now();
+  const DAY = 24 * 60 * 60 * 1000;
+
+  const rows = ids.map((pid) => {
+    const pts = [...byProd.get(pid)!].sort((a, b) => a.date.getTime() - b.date.getTime());
+    const events = pts.length;
+    const totalQty = pts.reduce((a, p) => a + p.qty, 0);
+    const first = pts[0].date.getTime();
+    const last = pts[pts.length - 1].date.getTime();
+    const spanDays = (last - first) / DAY;
+    const monthlyQty = spanDays > 15 ? totalQty / (spanDays / 30) : totalQty;
+    const avgInterval = events > 1 ? spanDays / (events - 1) : null;
+    const nextExpected = avgInterval ? new Date(last + avgInterval * DAY) : null;
+    const daysSinceLast = (now - last) / DAY;
+    const prod = pmap.get(pid);
+
+    const movement =
+      events >= 5
+        ? "Fast-moving"
+        : events <= 2 || daysSinceLast > 180
+          ? "Slow-moving"
+          : "Steady";
+
+    return {
+      productId: pid,
+      name: prod?.name ?? "?",
+      sku: prod?.sku ?? "",
+      uom: prod?.uom ?? "",
+      events,
+      totalQty: Math.round(totalQty),
+      monthlyQty: Math.round(monthlyQty * 10) / 10,
+      lastPurchase: new Date(last).toISOString(),
+      nextExpected: nextExpected ? nextExpected.toISOString() : null,
+      movement,
+    };
+  });
+
+  rows.sort((a, b) => b.events - a.events);
+  return rows;
+}
