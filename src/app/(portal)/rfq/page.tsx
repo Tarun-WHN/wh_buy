@@ -5,7 +5,7 @@ import { useState, useEffect, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Plus } from "lucide-react";
+import { Plus, Sparkles } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -136,10 +136,16 @@ export default function RfqListPage() {
         title="RFQs"
         description="Manage requests for quotation"
       >
-        <Button variant="brand" render={<Link href="/rfq/new" />}>
-          <Plus className="mr-1.5 size-4" />
-          New RFQ
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="brand" render={<Link href="/rfq/generate" />}>
+            <Sparkles className="mr-1.5 size-4" />
+            Generate with AI
+          </Button>
+          <Button variant="outline" render={<Link href="/rfq/new" />}>
+            <Plus className="mr-1.5 size-4" />
+            New RFQ
+          </Button>
+        </div>
       </PageHeader>
 
       <Card>

@@ -439,10 +439,90 @@ export async function getIntelligenceProducts(search?: string) {
           }
         : {}),
     },
-    select: { id: true, name: true, sku: true },
+    select: { id: true, name: true, sku: true, uom: true, specifications: true },
     orderBy: { name: "asc" },
     take: 50,
   });
+}
+
+// ============================================================
+// CAPABILITY 2 — AI RFQ GENERATOR (multi-SKU vendor suggestion)
+// ============================================================
+
+export async function suggestRfqVendors(productIds: string[]) {
+  await requireView();
+  if (!productIds.length) return [];
+
+  const points = (await gatherPricePoints()).filter((p) =>
+    productIds.includes(p.productId)
+  );
+  const offers = await prisma.vendorProduct.findMany({
+    where: { productId: { in: productIds } },
+    select: { vendorId: true, productId: true, rate: true },
+  });
+
+  const cover = new Map<string, Set<string>>();
+  const addCover = (vid: string, pid: string) => {
+    const s = cover.get(vid) ?? new Set<string>();
+    s.add(pid);
+    cover.set(vid, s);
+  };
+  for (const p of points) addCover(p.vendorId, p.productId);
+  for (const o of offers) addCover(o.vendorId, o.productId);
+
+  const vendorIds = [...cover.keys()];
+  if (!vendorIds.length) return [];
+
+  const vendors = await prisma.vendor.findMany({
+    where: { id: { in: vendorIds }, deletedAt: null },
+    select: {
+      id: true,
+      name: true,
+      code: true,
+      preferenceStatus: true,
+      gstNumber: true,
+      leadTimeDays: true,
+      rating: true,
+      city: true,
+    },
+  });
+
+  const recs = vendors
+    .filter((v) => v.preferenceStatus !== "BLACKLISTED")
+    .map((v) => {
+      const covers = cover.get(v.id)!;
+      const coverage = covers.size / productIds.length;
+      const reasons: string[] = [
+        `Covers ${covers.size}/${productIds.length} selected item${productIds.length === 1 ? "" : "s"}`,
+      ];
+      if (v.preferenceStatus === "PREFERRED") reasons.push("Preferred vendor");
+      if (v.gstNumber) reasons.push("GST compliant");
+      if (v.leadTimeDays != null) reasons.push(`Lead time ${v.leadTimeDays}d`);
+      if (v.city) reasons.push(v.city);
+
+      const prefScore =
+        v.preferenceStatus === "PREFERRED"
+          ? 100
+          : v.preferenceStatus === "APPROVED"
+            ? 70
+            : 40;
+      const ratingScore = v.rating > 0 ? v.rating * 20 : 60;
+      const score = Math.round(coverage * 100 * 0.6 + prefScore * 0.25 + ratingScore * 0.15);
+
+      return {
+        vendorId: v.id,
+        name: v.name,
+        code: v.code,
+        coversCount: covers.size,
+        coverage: Math.round(coverage * 100),
+        preferenceStatus: v.preferenceStatus,
+        score,
+        reasons,
+      };
+    })
+    .sort((a, b) => b.coversCount - a.coversCount || b.score - a.score);
+
+  return recs;
 }
 
 // ============================================================
