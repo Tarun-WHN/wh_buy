@@ -444,3 +444,352 @@ export async function getIntelligenceProducts(search?: string) {
     take: 50,
   });
 }
+
+// ============================================================
+// CAPABILITY 4 (deep) — SKU PRICE DETAIL (vendor / state / monthly)
+// ============================================================
+
+export async function getSkuPriceDetail(productId: string) {
+  await requireView();
+  const [product, points, poItems] = await Promise.all([
+    prisma.product.findUnique({
+      where: { id: productId },
+      select: { id: true, name: true, sku: true, uom: true },
+    }),
+    gatherPricePoints(productId),
+    prisma.poLineItem.findMany({
+      where: { productId },
+      select: {
+        unitPrice: true,
+        purchaseOrder: {
+          select: {
+            warehouse: {
+              select: { city: { select: { state: { select: { name: true } } } } },
+            },
+          },
+        },
+      },
+    }),
+  ]);
+  if (!product) throw new Error("Product not found");
+  if (points.length === 0)
+    return {
+      product,
+      stats: null,
+      vendorWise: [],
+      stateWise: [],
+      monthly: [],
+      alerts: [],
+    };
+
+  const prices = points.map((p) => p.price);
+  const stats = {
+    min: Math.min(...prices),
+    max: Math.max(...prices),
+    avg: avg(prices),
+    median: median(prices),
+    count: prices.length,
+  };
+
+  // vendor-wise
+  const vendorIds = [...new Set(points.map((p) => p.vendorId))];
+  const vendors = await prisma.vendor.findMany({
+    where: { id: { in: vendorIds } },
+    select: { id: true, name: true },
+  });
+  const vmap = new Map(vendors.map((v) => [v.id, v.name]));
+  const byVendor = new Map<string, PricePoint[]>();
+  for (const p of points) {
+    const a = byVendor.get(p.vendorId) ?? [];
+    a.push(p);
+    byVendor.set(p.vendorId, a);
+  }
+  const vendorWise = [...byVendor.entries()]
+    .map(([vid, pts]) => {
+      const pr = pts.map((x) => x.price);
+      return {
+        vendor: vmap.get(vid) ?? "Unknown",
+        min: Math.min(...pr),
+        avg: avg(pr),
+        max: Math.max(...pr),
+        count: pr.length,
+        last: pts.reduce((a, b) => (a.date > b.date ? a : b)).price,
+      };
+    })
+    .sort((a, b) => a.avg - b.avg);
+
+  // state-wise (PO line items only — they carry a warehouse)
+  const byState = new Map<string, number[]>();
+  for (const it of poItems) {
+    const st = it.purchaseOrder.warehouse?.city?.state?.name ?? "Unknown";
+    const a = byState.get(st) ?? [];
+    a.push(it.unitPrice);
+    byState.set(st, a);
+  }
+  const stateWise = [...byState.entries()]
+    .map(([state, pr]) => ({ state, avg: avg(pr), count: pr.length }))
+    .sort((a, b) => b.count - a.count);
+
+  // monthly trend
+  const byMonth = new Map<string, number[]>();
+  for (const p of points) {
+    const key = `${p.date.getFullYear()}-${String(p.date.getMonth() + 1).padStart(2, "0")}`;
+    const a = byMonth.get(key) ?? [];
+    a.push(p.price);
+    byMonth.set(key, a);
+  }
+  const monthly = [...byMonth.entries()]
+    .map(([month, pr]) => ({ month, avg: avg(pr), count: pr.length }))
+    .sort((a, b) => a.month.localeCompare(b.month));
+
+  // alerts
+  const latest = points.reduce((a, b) => (a.date > b.date ? a : b));
+  const alerts: { type: string; message: string }[] = [];
+  if (latest.price > stats.avg * 1.15)
+    alerts.push({
+      type: "warning",
+      message: `Latest rate ₹${Math.round(latest.price).toLocaleString(
+        "en-IN"
+      )} is ${Math.round(
+        (latest.price / stats.avg - 1) * 100
+      )}% above the average — possible price increase.`,
+    });
+  if (latest.price < stats.avg * 0.7)
+    alerts.push({
+      type: "info",
+      message: `Latest rate ₹${Math.round(latest.price).toLocaleString(
+        "en-IN"
+      )} is unusually low vs average ₹${Math.round(stats.avg).toLocaleString(
+        "en-IN"
+      )} — worth verifying for a data error.`,
+    });
+  if (stats.max / stats.min > 1.2)
+    alerts.push({
+      type: "opportunity",
+      message: `Rates range ₹${Math.round(stats.min).toLocaleString(
+        "en-IN"
+      )}–₹${Math.round(stats.max).toLocaleString(
+        "en-IN"
+      )} across sources — negotiation opportunity toward the lowest.`,
+    });
+
+  return { product, stats, vendorWise, stateWise, monthly, alerts };
+}
+
+// ============================================================
+// CAPABILITY 5 — PROCUREMENT KNOWLEDGE GRAPH
+// ============================================================
+
+export async function getKnowledgeInsights() {
+  await requireView();
+  const [vps, poItems, qItems, products, vendors] = await Promise.all([
+    prisma.vendorProduct.findMany({ select: { vendorId: true, productId: true } }),
+    prisma.poLineItem.findMany({
+      select: {
+        productId: true,
+        purchaseOrder: { select: { vendorId: true, warehouseId: true } },
+      },
+    }),
+    prisma.quotationItem.findMany({
+      select: {
+        rfqLineItem: { select: { productId: true } },
+        quotation: { select: { vendorId: true } },
+      },
+    }),
+    prisma.product.findMany({
+      select: {
+        id: true,
+        name: true,
+        sku: true,
+        productGroup: {
+          select: {
+            subcategory: { select: { category: { select: { id: true } } } },
+          },
+        },
+      },
+    }),
+    prisma.vendor.findMany({ select: { id: true, name: true } }),
+  ]);
+
+  const vmap = new Map(vendors.map((v) => [v.id, v.name]));
+  const catOf = new Map(
+    products.map((p) => [p.id, p.productGroup?.subcategory?.category?.id])
+  );
+  const nameOf = new Map(products.map((p) => [p.id, { name: p.name, sku: p.sku }]));
+
+  const vProducts = new Map<string, Set<string>>();
+  const vWarehouses = new Map<string, Set<string>>();
+  const vCategories = new Map<string, Set<string>>();
+  const add = (m: Map<string, Set<string>>, k: string, v: string) => {
+    const s = m.get(k) ?? new Set<string>();
+    s.add(v);
+    m.set(k, s);
+  };
+
+  for (const vp of vps) {
+    add(vProducts, vp.vendorId, vp.productId);
+    const c = catOf.get(vp.productId);
+    if (c) add(vCategories, vp.vendorId, c);
+  }
+  for (const it of poItems) {
+    const v = it.purchaseOrder.vendorId;
+    add(vProducts, v, it.productId);
+    if (it.purchaseOrder.warehouseId) add(vWarehouses, v, it.purchaseOrder.warehouseId);
+    const c = catOf.get(it.productId);
+    if (c) add(vCategories, v, c);
+  }
+  for (const it of qItems) {
+    const v = it.quotation.vendorId;
+    add(vProducts, v, it.rfqLineItem.productId);
+    const c = catOf.get(it.rfqLineItem.productId);
+    if (c) add(vCategories, v, c);
+  }
+
+  const rank = (m: Map<string, Set<string>>) =>
+    [...m.entries()]
+      .map(([vid, s]) => ({ vendorId: vid, vendor: vmap.get(vid) ?? "?", count: s.size }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 5);
+
+  // SKUs bought at very different rates across vendors
+  const points = await gatherPricePoints();
+  const byProd = new Map<string, Map<string, number[]>>();
+  for (const p of points) {
+    const vm = byProd.get(p.productId) ?? new Map<string, number[]>();
+    const a = vm.get(p.vendorId) ?? [];
+    a.push(p.price);
+    vm.set(p.vendorId, a);
+    byProd.set(p.productId, vm);
+  }
+  const rateSpread = [...byProd.entries()]
+    .map(([pid, vm]) => {
+      const vendorAvgs = [...vm.values()].map((pr) => avg(pr));
+      if (vendorAvgs.length < 2) return null;
+      const mn = Math.min(...vendorAvgs);
+      const mx = Math.max(...vendorAvgs);
+      const info = nameOf.get(pid);
+      return {
+        productId: pid,
+        name: info?.name ?? "?",
+        sku: info?.sku ?? "",
+        min: mn,
+        max: mx,
+        spreadPct: mn > 0 ? ((mx - mn) / mn) * 100 : 0,
+        vendorCount: vm.size,
+      };
+    })
+    .filter((r): r is NonNullable<typeof r> => r !== null)
+    .sort((a, b) => b.spreadPct - a.spreadPct)
+    .slice(0, 5);
+
+  return {
+    widestRange: rank(vProducts),
+    mostWarehouses: rank(vWarehouses),
+    mostCategories: rank(vCategories),
+    rateSpread,
+  };
+}
+
+export async function getVendor360(vendorId: string) {
+  await requireView();
+  const vendor = await prisma.vendor.findUnique({
+    where: { id: vendorId },
+    select: {
+      id: true,
+      name: true,
+      code: true,
+      city: true,
+      state: true,
+      gstNumber: true,
+      preferenceStatus: true,
+    },
+  });
+  if (!vendor) throw new Error("Vendor not found");
+
+  const [pos, quotes, offers] = await Promise.all([
+    prisma.purchaseOrder.findMany({
+      where: { vendorId, deletedAt: null },
+      select: {
+        warehouse: {
+          select: {
+            name: true,
+            city: { select: { state: { select: { name: true } } } },
+          },
+        },
+        lineItems: { select: { productId: true, productName: true, unitPrice: true } },
+      },
+    }),
+    prisma.quotation.count({ where: { vendorId } }),
+    prisma.vendorProduct.findMany({
+      where: { vendorId },
+      select: {
+        rate: true,
+        product: {
+          select: {
+            id: true,
+            name: true,
+            sku: true,
+            productGroup: {
+              select: {
+                subcategory: { select: { category: { select: { name: true } } } },
+              },
+            },
+          },
+        },
+      },
+    }),
+  ]);
+
+  const prodMap = new Map<
+    string,
+    { name: string; sku: string; category: string; rate: number | null }
+  >();
+  for (const o of offers)
+    prodMap.set(o.product.id, {
+      name: o.product.name,
+      sku: o.product.sku,
+      category: o.product.productGroup?.subcategory?.category?.name ?? "—",
+      rate: o.rate,
+    });
+  for (const po of pos)
+    for (const li of po.lineItems)
+      if (!prodMap.has(li.productId))
+        prodMap.set(li.productId, {
+          name: li.productName,
+          sku: "",
+          category: "—",
+          rate: li.unitPrice,
+        });
+
+  const products = [...prodMap.values()];
+  const whMap = new Map<string, string>();
+  const states = new Set<string>();
+  for (const po of pos)
+    if (po.warehouse) {
+      const st = po.warehouse.city?.state?.name ?? "";
+      whMap.set(po.warehouse.name, st);
+      if (st) states.add(st);
+    }
+  const categories = [
+    ...new Set(products.map((p) => p.category).filter((c) => c && c !== "—")),
+  ];
+
+  return {
+    vendor,
+    products,
+    categories,
+    warehouses: [...whMap.entries()].map(([name, state]) => ({ name, state })),
+    states: [...states],
+    poCount: pos.length,
+    quoteCount: quotes,
+  };
+}
+
+export async function getKnowledgeVendors() {
+  await requireView();
+  return prisma.vendor.findMany({
+    where: { deletedAt: null },
+    select: { id: true, name: true, code: true },
+    orderBy: { name: "asc" },
+  });
+}
