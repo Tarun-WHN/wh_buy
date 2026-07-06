@@ -291,6 +291,7 @@ model Vendor {
   scorecards       VendorScorecard[]
   documents        Document[]
   performanceEntries VendorPerformanceEntry[]
+  qualityClaims    QualityClaim[]
 }
 
 model VendorProduct {
@@ -771,6 +772,32 @@ model VendorPerformanceEntry {
   remarks               String?
   createdAt             DateTime  @default(now())
   updatedAt             DateTime  @updatedAt
+
+  @@index([vendorId])
+}
+
+// ============================================================
+// QUALITY & CLAIMS
+// ============================================================
+
+model QualityClaim {
+  id           String    @id @default(cuid())
+  number       String    @unique
+  vendor       Vendor    @relation(fields: [vendorId], references: [id])
+  vendorId     String
+  productId    String?
+  productName  String?
+  poNumber     String?
+  type         String    // REJECTION | QUALITY | REPLACEMENT | WARRANTY | DAMAGE
+  severity     String    @default("MEDIUM") // LOW | MEDIUM | HIGH
+  status       String    @default("OPEN") // OPEN | IN_PROGRESS | RESOLVED | CLOSED
+  quantity     Float?
+  description  String
+  raisedDate   DateTime  @default(now())
+  resolvedDate DateTime?
+  createdById  String
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 
   @@index([vendorId])
 }

@@ -808,7 +808,7 @@ function riskBand(score: number): "Low" | "Medium" | "High" | "Critical" {
 export async function getSupplierRiskScores() {
   await requireView();
 
-  const [vendors, pos, quoteCounts, vps, poItems, qItems, perf] =
+  const [vendors, pos, quoteCounts, vps, poItems, qItems, perf, claims] =
     await Promise.all([
       prisma.vendor.findMany({
         where: { deletedAt: null },
@@ -844,7 +844,16 @@ export async function getSupplierRiskScores() {
           manualEscalationCount: true,
         },
       }),
+      prisma.qualityClaim.findMany({ select: { vendorId: true, status: true } }),
     ]);
+
+  const claimMap = new Map<string, { total: number; open: number }>();
+  for (const c of claims) {
+    const e = claimMap.get(c.vendorId) ?? { total: 0, open: 0 };
+    e.total += 1;
+    if (c.status === "OPEN" || c.status === "IN_PROGRESS") e.open += 1;
+    claimMap.set(c.vendorId, e);
+  }
 
   const now = new Date();
   const yearAgo = now.getTime() - 365 * 24 * 60 * 60 * 1000;
@@ -946,6 +955,17 @@ export async function getSupplierRiskScores() {
         score += Math.min(15, lateRate * 0.15);
         factors.push(`${Math.round(lateRate)}% late deliveries`);
       }
+    }
+
+    // Quality claims
+    const cl = claimMap.get(v.id);
+    if (cl && cl.total > 0) {
+      score += Math.min(20, cl.total * 4 + cl.open * 4);
+      factors.push(
+        `${cl.total} quality claim${cl.total === 1 ? "" : "s"}${
+          cl.open ? ` (${cl.open} open)` : ""
+        }`
+      );
     }
 
     // Inactivity
