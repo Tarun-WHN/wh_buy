@@ -16,6 +16,7 @@ import {
   Boxes,
   AlertTriangle,
   ShieldAlert,
+  PiggyBank,
 } from "lucide-react";
 import {
   Dialog,
@@ -43,6 +44,7 @@ import {
   getVendor360,
   getKnowledgeVendors,
   getSupplierRiskScores,
+  getSavingsOpportunities,
 } from "@/actions/intelligence.actions";
 
 const money = (n: number) =>
@@ -53,7 +55,8 @@ type Tab =
   | "benchmarking"
   | "recommendations"
   | "knowledge"
-  | "risk";
+  | "risk"
+  | "savings";
 
 export default function IntelligencePage() {
   const [tab, setTab] = useState<Tab>("consolidation");
@@ -73,6 +76,7 @@ export default function IntelligencePage() {
             ["recommendations", "Vendor Recommendations"],
             ["knowledge", "Knowledge Graph"],
             ["risk", "Supplier Risk"],
+            ["savings", "Savings Engine"],
           ] as const
         ).map(([key, label]) => (
           <button
@@ -96,6 +100,116 @@ export default function IntelligencePage() {
       {tab === "recommendations" && <Recommendations />}
       {tab === "knowledge" && <KnowledgeGraph />}
       {tab === "risk" && <SupplierRisk />}
+      {tab === "savings" && <SavingsEngine />}
+    </div>
+  );
+}
+
+// ============================================================
+// CAPABILITY 12 — SAVINGS ENGINE
+// ============================================================
+
+function SavingsEngine() {
+  const [data, setData] = useState<{
+    totalEstimated: number;
+    categories: {
+      key: string;
+      title: string;
+      note: string;
+      estimatedSavings: number;
+      indicative: boolean;
+      items: { label: string; detail: string; value: number }[];
+    }[];
+  } | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    getSavingsOpportunities()
+      .then((d) => setData(d as never))
+      .catch((e) => toast.error(e instanceof Error ? e.message : "Failed"))
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (loading)
+    return <p className="py-10 text-center text-sm text-muted-foreground">Finding savings…</p>;
+
+  if (!data || data.categories.length === 0)
+    return (
+      <EmptyState
+        icon={PiggyBank}
+        title="No savings opportunities yet"
+        hint="As quotes, POs and vendor rates accumulate, we'll surface overpriced purchases, consolidation, price-creep and bulk-buying opportunities here."
+      />
+    );
+
+  return (
+    <div className="space-y-4">
+      <Card className="border-emerald-300/40 bg-emerald-50/60">
+        <CardContent className="flex items-center gap-4 py-5">
+          <div className="flex size-11 items-center justify-center rounded-xl bg-emerald-500/15 text-emerald-600">
+            <PiggyBank className="size-5" />
+          </div>
+          <div>
+            <p className="text-sm text-muted-foreground">
+              Estimated annual savings opportunity
+            </p>
+            <p className="text-2xl font-bold text-emerald-600">
+              {money(data.totalEstimated)}
+            </p>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              If every purchase were made at the lowest rate already observed for
+              that item.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        {data.categories.map((c) => (
+          <Card key={c.key}>
+            <CardHeader className="pb-2">
+              <div className="flex items-start justify-between gap-3">
+                <CardTitle className="text-sm">
+                  {c.title}
+                  {c.indicative && (
+                    <Badge variant="outline" className="ml-2 text-[10px]">
+                      indicative
+                    </Badge>
+                  )}
+                </CardTitle>
+                <span className="shrink-0 text-lg font-bold text-emerald-600">
+                  {money(c.estimatedSavings)}
+                </span>
+              </div>
+              <p className="text-xs text-muted-foreground">{c.note}</p>
+            </CardHeader>
+            <CardContent>
+              {c.items.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No items.</p>
+              ) : (
+                <ul className="divide-y">
+                  {c.items.map((it) => (
+                    <li
+                      key={it.label + it.detail}
+                      className="flex items-center justify-between gap-3 py-2 text-sm"
+                    >
+                      <div className="min-w-0">
+                        <div className="truncate font-medium">{it.label}</div>
+                        <div className="truncate text-xs text-muted-foreground">
+                          {it.detail}
+                        </div>
+                      </div>
+                      <span className="shrink-0 font-medium text-emerald-600">
+                        {money(it.value)}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </CardContent>
+          </Card>
+        ))}
+      </div>
     </div>
   );
 }

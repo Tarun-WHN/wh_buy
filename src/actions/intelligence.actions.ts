@@ -989,3 +989,152 @@ export async function getSupplierRiskScores() {
 
   return { rows, summary };
 }
+
+// ============================================================
+// CAPABILITY 12 — PROCUREMENT SAVINGS ENGINE
+// ============================================================
+
+interface SavingsItem {
+  label: string;
+  detail: string;
+  value: number;
+}
+
+export async function getSavingsOpportunities() {
+  await requireView();
+  const points = await gatherPricePoints();
+  if (points.length === 0) return { totalEstimated: 0, categories: [] };
+
+  const byProduct = new Map<string, PricePoint[]>();
+  for (const p of points) {
+    const a = byProduct.get(p.productId) ?? [];
+    a.push(p);
+    byProduct.set(p.productId, a);
+  }
+  const ids = [...byProduct.keys()];
+  const products = await prisma.product.findMany({
+    where: { id: { in: ids } },
+    select: { id: true, name: true, sku: true },
+  });
+  const pmap = new Map(products.map((p) => [p.id, p]));
+
+  let overpricedTotal = 0;
+  let consolidationTotal = 0;
+  let consolidationCount = 0;
+  let creepTotal = 0;
+  let bulkTotal = 0;
+  const overpriced: SavingsItem[] = [];
+  const consolidation: SavingsItem[] = [];
+  const creep: SavingsItem[] = [];
+  const bulk: SavingsItem[] = [];
+
+  for (const [pid, pts] of byProduct) {
+    const info = pmap.get(pid);
+    const name = info?.name ?? "?";
+    const sku = info?.sku ?? "";
+    const prices = pts.map((p) => p.price);
+    const qtys = pts.map((p) => p.qty);
+    const min = Math.min(...prices);
+    const spend = pts.reduce((a, p) => a + p.price * p.qty, 0);
+    const overpay = pts.reduce((a, p) => a + (p.price - min) * p.qty, 0);
+    const vendorCount = new Set(pts.map((p) => p.vendorId)).size;
+
+    if (overpay > 0.5) {
+      overpricedTotal += overpay;
+      overpriced.push({
+        label: name,
+        detail: `${sku} · spend ₹${Math.round(spend).toLocaleString("en-IN")}`,
+        value: overpay,
+      });
+      if (vendorCount >= 2) {
+        consolidationTotal += overpay;
+        consolidationCount += 1;
+        consolidation.push({
+          label: name,
+          detail: `${vendorCount} vendors · lowest ₹${Math.round(min).toLocaleString("en-IN")}`,
+          value: overpay,
+        });
+      }
+    }
+
+    // Price creep — recent avg meaningfully above older avg
+    const sorted = [...pts].sort((a, b) => a.date.getTime() - b.date.getTime());
+    const half = Math.floor(sorted.length / 2);
+    if (half > 0) {
+      const older = sorted.slice(0, half);
+      const recent = sorted.slice(half);
+      const olderAvg = avg(older.map((p) => p.price));
+      const recentAvg = avg(recent.map((p) => p.price));
+      const recentQty = recent.reduce((a, p) => a + p.qty, 0);
+      if (olderAvg > 0 && recentAvg > olderAvg * 1.1) {
+        const sv = (recentAvg - olderAvg) * recentQty;
+        if (sv > 0.5) {
+          creepTotal += sv;
+          creep.push({
+            label: name,
+            detail: `₹${Math.round(olderAvg).toLocaleString("en-IN")} → ₹${Math.round(
+              recentAvg
+            ).toLocaleString("en-IN")} (+${Math.round(
+              (recentAvg / olderAvg - 1) * 100
+            )}%)`,
+            value: sv,
+          });
+        }
+      }
+    }
+
+    // Bulk / contract candidates — many small orders
+    const avgQty = avg(qtys);
+    if (pts.length >= 4 && avgQty < 10) {
+      const est = spend * 0.05;
+      bulkTotal += est;
+      bulk.push({
+        label: name,
+        detail: `${pts.length} orders · avg qty ${avgQty.toFixed(1)}`,
+        value: est,
+      });
+    }
+  }
+
+  const topSort = (a: SavingsItem[]) =>
+    a.sort((x, y) => y.value - x.value).slice(0, 6);
+
+  const categories = [
+    {
+      key: "overpriced",
+      title: "Buy at the best observed rate",
+      note: "Savings if every purchase were made at the lowest rate already seen for that item.",
+      estimatedSavings: overpricedTotal,
+      indicative: false,
+      items: topSort(overpriced),
+    },
+    {
+      key: "consolidation",
+      title: "Vendor consolidation",
+      note: `${consolidationCount} product${consolidationCount === 1 ? "" : "s"} bought from multiple vendors — routing to the lowest-cost supplier (subset of the total above).`,
+      estimatedSavings: consolidationTotal,
+      indicative: false,
+      items: topSort(consolidation),
+    },
+    {
+      key: "creep",
+      title: "Renegotiate rising prices",
+      note: "Items whose recent rate has climbed 10%+ over earlier purchases — prime renegotiation targets.",
+      estimatedSavings: creepTotal,
+      indicative: true,
+      items: topSort(creep),
+    },
+    {
+      key: "bulk",
+      title: "Bulk & contract candidates",
+      note: "Items bought frequently in small lots — consolidating into fewer/larger orders or a rate contract typically saves ~5%.",
+      estimatedSavings: bulkTotal,
+      indicative: true,
+      items: topSort(bulk),
+    },
+  ].filter((c) => c.items.length > 0);
+
+  // Headline: the concrete "buy at best rate" figure (consolidation is a subset;
+  // creep/bulk are indicative and shown separately, not double-counted).
+  return { totalEstimated: overpricedTotal, categories };
+}
