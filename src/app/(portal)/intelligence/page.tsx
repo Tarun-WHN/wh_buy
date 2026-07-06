@@ -15,6 +15,7 @@ import {
   MapPin,
   Boxes,
   AlertTriangle,
+  ShieldAlert,
 } from "lucide-react";
 import {
   Dialog,
@@ -41,12 +42,18 @@ import {
   getKnowledgeInsights,
   getVendor360,
   getKnowledgeVendors,
+  getSupplierRiskScores,
 } from "@/actions/intelligence.actions";
 
 const money = (n: number) =>
   `₹${Math.round(n).toLocaleString("en-IN")}`;
 
-type Tab = "consolidation" | "benchmarking" | "recommendations" | "knowledge";
+type Tab =
+  | "consolidation"
+  | "benchmarking"
+  | "recommendations"
+  | "knowledge"
+  | "risk";
 
 export default function IntelligencePage() {
   const [tab, setTab] = useState<Tab>("consolidation");
@@ -65,6 +72,7 @@ export default function IntelligencePage() {
             ["benchmarking", "Price Benchmarking"],
             ["recommendations", "Vendor Recommendations"],
             ["knowledge", "Knowledge Graph"],
+            ["risk", "Supplier Risk"],
           ] as const
         ).map(([key, label]) => (
           <button
@@ -87,6 +95,119 @@ export default function IntelligencePage() {
       {tab === "benchmarking" && <Benchmarking />}
       {tab === "recommendations" && <Recommendations />}
       {tab === "knowledge" && <KnowledgeGraph />}
+      {tab === "risk" && <SupplierRisk />}
+    </div>
+  );
+}
+
+// ============================================================
+// CAPABILITY 16 — SUPPLIER RISK
+// ============================================================
+
+const RISK_STYLE: Record<string, { text: string; bg: string; dot: string }> = {
+  Critical: { text: "text-red-700", bg: "bg-red-50 border-red-200", dot: "bg-red-600" },
+  High: { text: "text-orange-700", bg: "bg-orange-50 border-orange-200", dot: "bg-orange-500" },
+  Medium: { text: "text-amber-700", bg: "bg-amber-50 border-amber-200", dot: "bg-amber-500" },
+  Low: { text: "text-emerald-700", bg: "bg-emerald-50 border-emerald-200", dot: "bg-emerald-500" },
+};
+
+function SupplierRisk() {
+  const [data, setData] = useState<{
+    rows: {
+      vendorId: string;
+      name: string;
+      code: string;
+      score: number;
+      band: string;
+      spendShare: number;
+      factors: string[];
+    }[];
+    summary: Record<string, number>;
+  } | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    getSupplierRiskScores()
+      .then((d) => setData(d as never))
+      .catch((e) => toast.error(e instanceof Error ? e.message : "Failed"))
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (loading)
+    return <p className="py-10 text-center text-sm text-muted-foreground">Scoring vendors…</p>;
+
+  if (!data || data.rows.length === 0)
+    return (
+      <EmptyState
+        icon={ShieldAlert}
+        title="No vendors to score yet"
+        hint="Add vendors and record some POs, quotes and deliveries — risk scores build from single-source exposure, spend concentration, GST status, quality and delivery history."
+      />
+    );
+
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        {(["Critical", "High", "Medium", "Low"] as const).map((band) => (
+          <div key={band} className={cn("rounded-lg border p-4", RISK_STYLE[band].bg)}>
+            <div className={cn("text-2xl font-bold", RISK_STYLE[band].text)}>
+              {data.summary[band] ?? 0}
+            </div>
+            <div className="text-xs font-medium text-muted-foreground">{band} risk</div>
+          </div>
+        ))}
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Vendor risk register</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-3">
+            {data.rows.map((r) => (
+              <div key={r.vendorId} className="rounded-lg border p-4">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    <span
+                      className={cn("size-2.5 shrink-0 rounded-full", RISK_STYLE[r.band].dot)}
+                    />
+                    <div>
+                      <p className="font-semibold">{r.name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {r.code}
+                        {r.spendShare > 0 && ` · ${r.spendShare}% of spend`}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className={cn("text-xl font-bold", RISK_STYLE[r.band].text)}>
+                      {r.score}
+                    </div>
+                    <Badge variant="outline" className={cn("text-[10px]", RISK_STYLE[r.band].text)}>
+                      {r.band}
+                    </Badge>
+                  </div>
+                </div>
+                <ul className="mt-2 flex flex-wrap gap-1.5">
+                  {r.factors.map((f) => (
+                    <li
+                      key={f}
+                      className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground"
+                    >
+                      {f}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+          <p className="mt-3 text-xs text-muted-foreground">
+            Risk = single-source exposure + spend concentration + missing GST +
+            registration status + quality/delivery issues + inactivity.
+            Blacklisted vendors are always Critical.
+          </p>
+        </CardContent>
+      </Card>
     </div>
   );
 }

@@ -793,3 +793,199 @@ export async function getKnowledgeVendors() {
     orderBy: { name: "asc" },
   });
 }
+
+// ============================================================
+// CAPABILITY 16 — SUPPLIER RISK SCORING
+// ============================================================
+
+function riskBand(score: number): "Low" | "Medium" | "High" | "Critical" {
+  if (score >= 75) return "Critical";
+  if (score >= 50) return "High";
+  if (score >= 25) return "Medium";
+  return "Low";
+}
+
+export async function getSupplierRiskScores() {
+  await requireView();
+
+  const [vendors, pos, quoteCounts, vps, poItems, qItems, perf] =
+    await Promise.all([
+      prisma.vendor.findMany({
+        where: { deletedAt: null },
+        select: {
+          id: true,
+          name: true,
+          code: true,
+          gstNumber: true,
+          registrationStatus: true,
+          preferenceStatus: true,
+        },
+      }),
+      prisma.purchaseOrder.findMany({
+        where: { deletedAt: null },
+        select: { vendorId: true, totalAmount: true, createdAt: true },
+      }),
+      prisma.quotation.findMany({ select: { vendorId: true, createdAt: true } }),
+      prisma.vendorProduct.findMany({ select: { vendorId: true, productId: true } }),
+      prisma.poLineItem.findMany({
+        select: { productId: true, purchaseOrder: { select: { vendorId: true } } },
+      }),
+      prisma.quotationItem.findMany({
+        select: {
+          rfqLineItem: { select: { productId: true } },
+          quotation: { select: { vendorId: true } },
+        },
+      }),
+      prisma.vendorPerformanceEntry.findMany({
+        select: {
+          vendorId: true,
+          scheduledDeliveryDate: true,
+          actualDeliveryDate: true,
+          manualEscalationCount: true,
+        },
+      }),
+    ]);
+
+  const now = new Date();
+  const yearAgo = now.getTime() - 365 * 24 * 60 * 60 * 1000;
+
+  // Product -> set of vendors (to find sole-source products)
+  const productVendors = new Map<string, Set<string>>();
+  const addPV = (pid: string, vid: string) => {
+    const s = productVendors.get(pid) ?? new Set<string>();
+    s.add(vid);
+    productVendors.set(pid, s);
+  };
+  for (const vp of vps) addPV(vp.productId, vp.vendorId);
+  for (const it of poItems) addPV(it.productId, it.purchaseOrder.vendorId);
+  for (const it of qItems) addPV(it.rfqLineItem.productId, it.quotation.vendorId);
+
+  const soleSource = new Map<string, number>();
+  for (const [, vset] of productVendors) {
+    if (vset.size === 1) {
+      const vid = [...vset][0];
+      soleSource.set(vid, (soleSource.get(vid) ?? 0) + 1);
+    }
+  }
+
+  // Spend + last activity per vendor
+  const spend = new Map<string, number>();
+  const lastActivity = new Map<string, number>();
+  let totalSpend = 0;
+  for (const po of pos) {
+    spend.set(po.vendorId, (spend.get(po.vendorId) ?? 0) + po.totalAmount);
+    totalSpend += po.totalAmount;
+    const t = po.createdAt.getTime();
+    if (t > (lastActivity.get(po.vendorId) ?? 0)) lastActivity.set(po.vendorId, t);
+  }
+  for (const q of quoteCounts) {
+    const t = q.createdAt.getTime();
+    if (t > (lastActivity.get(q.vendorId) ?? 0)) lastActivity.set(q.vendorId, t);
+  }
+
+  // Quality + delivery per vendor
+  const deliv = new Map<string, { onTime: number; total: number; esc: number }>();
+  for (const e of perf) {
+    const d = deliv.get(e.vendorId) ?? { onTime: 0, total: 0, esc: 0 };
+    d.esc += e.manualEscalationCount;
+    if (e.scheduledDeliveryDate) {
+      const sched = new Date(e.scheduledDeliveryDate).getTime();
+      const actual = e.actualDeliveryDate
+        ? new Date(e.actualDeliveryDate).getTime()
+        : null;
+      if (actual || sched < now.getTime()) {
+        d.total += 1;
+        if (actual && actual <= sched) d.onTime += 1;
+        else d.esc += 1;
+      }
+    }
+    deliv.set(e.vendorId, d);
+  }
+
+  const rows = vendors.map((v) => {
+    const factors: string[] = [];
+    let score = 0;
+
+    // Sole-source dependency
+    const sole = soleSource.get(v.id) ?? 0;
+    if (sole > 0) {
+      score += Math.min(25, sole * 8);
+      factors.push(`Sole source for ${sole} product${sole === 1 ? "" : "s"}`);
+    }
+
+    // Spend concentration
+    const sharePct = totalSpend > 0 ? ((spend.get(v.id) ?? 0) / totalSpend) * 100 : 0;
+    if (sharePct >= 10) {
+      score += Math.min(20, sharePct / 2.5);
+      factors.push(`${Math.round(sharePct)}% of total spend`);
+    }
+
+    // GST compliance
+    if (!v.gstNumber) {
+      score += 15;
+      factors.push("No GST number on file");
+    }
+
+    // Registration
+    if (v.registrationStatus !== "APPROVED") {
+      score += 10;
+      factors.push(`Registration ${v.registrationStatus.toLowerCase()}`);
+    }
+
+    // Quality
+    const d = deliv.get(v.id);
+    if (d && d.esc > 0) {
+      score += Math.min(15, d.esc * 5);
+      factors.push(`${d.esc} quality/delivery escalation${d.esc === 1 ? "" : "s"}`);
+    }
+
+    // Late deliveries
+    if (d && d.total > 0) {
+      const lateRate = ((d.total - d.onTime) / d.total) * 100;
+      if (lateRate > 0) {
+        score += Math.min(15, lateRate * 0.15);
+        factors.push(`${Math.round(lateRate)}% late deliveries`);
+      }
+    }
+
+    // Inactivity
+    const last = lastActivity.get(v.id);
+    if (!last) {
+      score += 8;
+      factors.push("No recorded POs or quotes");
+    } else if (last < yearAgo) {
+      score += 10;
+      factors.push("No activity in 12+ months");
+    }
+
+    // Blacklist overrides everything
+    if (v.preferenceStatus === "BLACKLISTED") {
+      score = 100;
+      factors.unshift("Blacklisted vendor");
+    }
+
+    score = Math.min(100, Math.round(score));
+    if (factors.length === 0) factors.push("No risk signals detected");
+
+    return {
+      vendorId: v.id,
+      name: v.name,
+      code: v.code,
+      score,
+      band: riskBand(score),
+      spendShare: Math.round(sharePct),
+      factors,
+    };
+  });
+
+  rows.sort((a, b) => b.score - a.score);
+
+  const summary = {
+    Critical: rows.filter((r) => r.band === "Critical").length,
+    High: rows.filter((r) => r.band === "High").length,
+    Medium: rows.filter((r) => r.band === "Medium").length,
+    Low: rows.filter((r) => r.band === "Low").length,
+  };
+
+  return { rows, summary };
+}
