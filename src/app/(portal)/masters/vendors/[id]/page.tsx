@@ -34,6 +34,16 @@ import {
   addVendorCategory,
   removeVendorCategory,
 } from "@/actions/vendor.actions";
+import { setVendorPreference } from "@/actions/intelligence.actions";
+
+const PREFERENCE_OPTIONS = [
+  { value: "PREFERRED", label: "⭐ Preferred" },
+  { value: "APPROVED", label: "Approved" },
+  { value: "CONDITIONAL", label: "Conditional" },
+  { value: "WATCHLIST", label: "Watchlist" },
+  { value: "BLACKLISTED", label: "Blacklisted" },
+  { value: "INACTIVE", label: "Inactive" },
+];
 import { getCategories } from "@/actions/product.actions";
 
 // ============================================================
@@ -63,6 +73,7 @@ interface VendorData {
   msmeStatus: string | null;
   certifications: string | null;
   registrationStatus: string;
+  preferenceStatus: string;
   rating: number;
   vendorCategories: { id: string; categoryId: string; category: { id: string; name: string } }[];
   vendorProducts: { id: string; product: { id: string; name: string; sku: string } }[];
@@ -80,6 +91,22 @@ export default function VendorDetailPage({
   const { id } = use(params);
   const [isPending, startTransition] = useTransition();
   const [vendor, setVendor] = useState<VendorData | null>(null);
+  const [savingPref, setSavingPref] = useState(false);
+
+  async function handlePreferenceChange(status: string) {
+    if (!vendor) return;
+    setSavingPref(true);
+    try {
+      await setVendorPreference(vendor.id, status);
+      setVendor({ ...vendor, preferenceStatus: status });
+      toast.success("Vendor status updated");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to update");
+    } finally {
+      setSavingPref(false);
+    }
+  }
+
   const [allCategories, setAllCategories] = useState<
     { id: string; name: string }[]
   >([]);
@@ -265,6 +292,27 @@ export default function VendorDetailPage({
         description={`Code: ${vendor.code}`}
       >
         <div className="flex items-center gap-2">
+          <Select
+            value={vendor.preferenceStatus}
+            onValueChange={(v) => handlePreferenceChange(v ?? "APPROVED")}
+            disabled={savingPref}
+          >
+            <SelectTrigger className="w-[150px]" title="Vendor preference status">
+              <SelectValue placeholder="Status">
+                {(val) =>
+                  PREFERENCE_OPTIONS.find((o) => o.value === val)?.label ??
+                  "Status"
+                }
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              {PREFERENCE_OPTIONS.map((o) => (
+                <SelectItem key={o.value} value={o.value}>
+                  {o.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <StatusBadge status={vendor.registrationStatus} />
           {isPendingApproval && (
             <>

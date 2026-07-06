@@ -28,6 +28,7 @@ import {
   Store,
   FolderTree,
   Gauge,
+  Sparkles,
   ChevronDown,
   CheckCircle2,
 } from "lucide-react";
@@ -339,6 +340,14 @@ const MODULES: ModuleGuide[] = [
     how: "Filter by period and export to PDF/Excel for reviews.",
   },
   {
+    slug: "intelligence",
+    icon: Sparkles,
+    name: "Procurement Intelligence",
+    accent: "#F47B20",
+    what: "AI-driven insights from your quotes, POs and price history.",
+    how: "Vendor Consolidation flags products bought from many vendors (with est. savings); Price Benchmarking shows lowest/avg/median rates & trend per SKU; Vendor Recommendations rank suppliers for a SKU with the reasons behind each rank. Mark vendors Preferred/Blacklisted on their profile to influence ranking.",
+  },
+  {
     slug: "settings",
     icon: Settings,
     name: "Settings",
@@ -364,6 +373,14 @@ const FAQS = [
   {
     q: "What is the right order to do things in?",
     a: "Requirement → RFQ → Compare quotes → Purchase Order → Delivery → GRN → Invoice → Payment. The Quick Start strip at the top shows this flow.",
+  },
+  {
+    q: "How does Procurement Intelligence work?",
+    a: "It analyses the data you already capture — vendor rates, quotes, purchase orders and price history — to surface consolidation opportunities, price benchmarks and ranked vendor recommendations. It is not a guess: every recommendation lists the reasons behind it. The more quotes, POs and vendor rates you record, the sharper it gets.",
+  },
+  {
+    q: "Why is an Intelligence report empty?",
+    a: "The reports need historical data. Add vendors + rates on product pages, and record quotes/POs — rows appear automatically as data accumulates. Vendor Consolidation only lists products bought from 2+ vendors.",
   },
   {
     q: "Why can't I see a certain menu?",

@@ -24,6 +24,7 @@ const HELP_TOPICS: [string, string][] = [
   ["/approvals", "approvals"],
   ["/analytics", "analytics"],
   ["/reports", "analytics"],
+  ["/intelligence", "intelligence"],
   ["/settings", "settings"],
   ["/vendor-portal", "vendor-portal"],
   ["/dashboard", "dashboard"],

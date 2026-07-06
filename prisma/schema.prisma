@@ -273,6 +273,7 @@ model Vendor {
   msmeStatus         String?
   certifications     String?
   registrationStatus String    @default("PENDING")
+  preferenceStatus   String    @default("APPROVED") // PREFERRED|APPROVED|CONDITIONAL|WATCHLIST|BLACKLISTED|INACTIVE
   rating             Float     @default(0)
   isActive           Boolean   @default(true)
   createdAt          DateTime  @default(now())
