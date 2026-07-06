@@ -14,6 +14,7 @@ import {
   Truck,
 } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
+import { PoProjectAssign } from "@/components/po-project-assign";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -49,6 +50,7 @@ interface PoData {
   id: string;
   number: string;
   rfqId: string | null;
+  projectId: string | null;
   status: string;
   revision: number;
   paymentTerms: string | null;
@@ -230,6 +232,8 @@ export default function PurchaseOrderDetailPage({
           Back
         </Button>
       </PageHeader>
+
+      <PoProjectAssign poId={po.id} initialProjectId={po.projectId} />
 
       {/* Action Buttons */}
       <div className="flex flex-wrap items-center gap-2">
