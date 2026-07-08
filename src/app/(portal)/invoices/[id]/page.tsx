@@ -12,6 +12,7 @@ import {
   CreditCard,
 } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
+import { InvoiceDeductionCard } from "@/components/invoice-deduction-card";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -73,6 +74,9 @@ interface InvoiceData {
   grnMatchStatus: string | null;
   matchRemarks: string | null;
   filePath: string | null;
+  fileName: string | null;
+  deductionAmount: number;
+  deductionReason: string | null;
   createdAt: string;
   purchaseOrder: {
     id: string;
@@ -262,6 +266,15 @@ export default function InvoiceDetailPage({
           Back
         </Button>
       </PageHeader>
+
+      <InvoiceDeductionCard
+        invoiceId={invoice.id}
+        totalAmount={invoice.totalAmount}
+        initialDeduction={invoice.deductionAmount}
+        initialReason={invoice.deductionReason}
+        initialFilePath={invoice.filePath}
+        initialFileName={invoice.fileName}
+      />
 
       {/* Action Buttons */}
       <div className="flex flex-wrap items-center gap-2">

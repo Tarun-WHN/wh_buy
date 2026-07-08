@@ -709,6 +709,9 @@ model Invoice {
   grnMatchStatus  String?
   matchRemarks    String?
   filePath        String?
+  fileName        String?
+  deductionAmount Float         @default(0)
+  deductionReason String?
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
 

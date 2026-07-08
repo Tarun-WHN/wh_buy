@@ -216,7 +216,11 @@ export async function createInvoice(data: z.infer<typeof createInvoiceSchema>) {
 // UPLOAD INVOICE DOCUMENT
 // ============================================================
 
-export async function uploadInvoice(invoiceId: string, filePath: string) {
+export async function uploadInvoice(
+  invoiceId: string,
+  filePath: string,
+  fileName?: string
+) {
   await requireInvoiceManage();
 
   const invoice = await prisma.invoice.findUnique({ where: { id: invoiceId } });
@@ -224,9 +228,32 @@ export async function uploadInvoice(invoiceId: string, filePath: string) {
 
   await prisma.invoice.update({
     where: { id: invoiceId },
-    data: { filePath },
+    data: { filePath, fileName },
   });
 
+  revalidatePath(`/invoices/${invoiceId}`);
+}
+
+// Record a deduction (short payment) against the vendor's invoice with a reason.
+export async function setInvoiceDeduction(
+  invoiceId: string,
+  deductionAmount: number,
+  deductionReason: string
+) {
+  await requireInvoiceManage();
+  const invoice = await prisma.invoice.findUnique({ where: { id: invoiceId } });
+  if (!invoice) throw new Error("Invoice not found");
+  if (deductionAmount < 0) throw new Error("Deduction cannot be negative");
+  if (deductionAmount > invoice.totalAmount)
+    throw new Error("Deduction cannot exceed the invoice total");
+
+  await prisma.invoice.update({
+    where: { id: invoiceId },
+    data: {
+      deductionAmount,
+      deductionReason: deductionReason || null,
+    },
+  });
   revalidatePath(`/invoices/${invoiceId}`);
 }
 
