@@ -32,6 +32,7 @@ import {
   FileBarChart,
   Sparkles,
   CloudUpload,
+  Bot,
   ShieldCheck,
   Settings,
   UserCog,
@@ -166,6 +167,12 @@ const NAV_GROUPS: NavGroup[] = [
   {
     label: "Analytics",
     items: [
+      {
+        label: "AI Copilot",
+        href: "/copilot",
+        icon: Bot,
+        permission: PERMISSIONS.ANALYTICS_VIEW,
+      },
       {
         label: "Procurement",
         href: "/analytics/procurement",
