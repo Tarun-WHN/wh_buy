@@ -321,6 +321,133 @@ export async function createSubcategory(
   return subcategory;
 }
 
+// ============================================================
+// BULK IMPORT (Categories & Products) — accepts parsed rows
+// ============================================================
+
+type Row = Record<string, string>;
+const lower = (r: Row): Row =>
+  Object.fromEntries(
+    Object.entries(r).map(([k, v]) => [k.trim().toLowerCase(), String(v ?? "").trim()])
+  );
+const slug = (s: string) =>
+  s.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 10) || "X";
+
+async function freeCategoryCode(base: string) {
+  for (let i = 0; i < 50; i++) {
+    const code = i === 0 ? base : `${base}${i}`;
+    if (!(await prisma.category.findUnique({ where: { code } }))) return code;
+  }
+  return `${base}${Math.floor(base.length * 7)}`;
+}
+
+// Find-or-create the Category → Subcategory → ProductGroup chain.
+async function resolveGroup(r: Row) {
+  const catName = r.category;
+  if (!catName) throw new Error("Category is required");
+  let cat = await prisma.category.findFirst({ where: { name: catName, deletedAt: null } });
+  if (!cat)
+    cat = await prisma.category.create({
+      data: { name: catName, code: await freeCategoryCode(r.categorycode ? slug(r.categorycode) : slug(catName)) },
+    });
+
+  const subName = r.subcategory || "General";
+  let sub = await prisma.subcategory.findFirst({
+    where: { name: subName, categoryId: cat.id, deletedAt: null },
+  });
+  if (!sub)
+    sub = await prisma.subcategory.create({
+      data: { name: subName, code: slug(subName), categoryId: cat.id },
+    });
+
+  const grpName = r.productgroup || "General";
+  let grp = await prisma.productGroup.findFirst({
+    where: { name: grpName, subcategoryId: sub.id, deletedAt: null },
+  });
+  if (!grp)
+    grp = await prisma.productGroup.create({
+      data: { name: grpName, code: slug(grpName), subcategoryId: sub.id },
+    });
+  return grp.id;
+}
+
+export async function importCategories(rows: Row[]) {
+  await requireProductPermission();
+  let success = 0;
+  const errors: string[] = [];
+  for (const raw of rows) {
+    const r = lower(raw);
+    if (!r.category) continue;
+    try {
+      await resolveGroup(r);
+      success++;
+    } catch (e) {
+      errors.push(`${r.category || "row"}: ${e instanceof Error ? e.message : "failed"}`);
+    }
+  }
+  revalidatePath("/masters/categories");
+  revalidatePath(PRODUCT_LIST_PATH);
+  return { success, errors };
+}
+
+export async function importProducts(rows: Row[]) {
+  const session = await requireProductPermission();
+  let success = 0;
+  const errors: string[] = [];
+  for (const raw of rows) {
+    const r = lower(raw);
+    const name = r.name || r.productname;
+    const sku = (r.sku || "").toUpperCase();
+    if (!name || !sku) {
+      if (name || sku) errors.push(`${name || sku}: name and SKU are required`);
+      continue;
+    }
+    try {
+      if (await prisma.product.findUnique({ where: { sku } })) {
+        errors.push(`${sku}: already exists — skipped`);
+        continue;
+      }
+      const brand = r.brand || "Local / Non-branded";
+      const modelNumber = r.modelnumber || r.model || "NA";
+      const size = r.size || "NA";
+      const uom = r.uom || "Nos";
+      const productGroupId = await resolveGroup(r);
+
+      // ensure brand exists in the brand master
+      const existingBrand = await prisma.brand.findFirst({ where: { name: brand } });
+      if (!existingBrand) await prisma.brand.create({ data: { name: brand } });
+
+      await prisma.product.create({
+        data: {
+          name,
+          sku,
+          uom,
+          brand,
+          modelNumber,
+          size,
+          hsnCode: r.hsn || r.hsncode || undefined,
+          gstPercent: r.gst ? parseFloat(r.gst) || 0 : 0,
+          productGroupId,
+          versions: {
+            create: {
+              version: 1,
+              name,
+              uom,
+              changedBy: session.user.id,
+              changeReason: "Bulk import",
+            },
+          },
+        },
+      });
+      success++;
+    } catch (e) {
+      errors.push(`${sku}: ${e instanceof Error ? e.message : "failed"}`);
+    }
+  }
+  revalidatePath(PRODUCT_LIST_PATH);
+  return { success, errors };
+}
+
 export async function createProductGroup(
   data: z.infer<typeof productGroupSchema>
 ) {

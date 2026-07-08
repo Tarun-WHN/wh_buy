@@ -45,7 +45,9 @@ import {
   createWarehouse,
   updateWarehouse,
   deleteWarehouse,
+  importLocations,
 } from "@/actions/location.actions";
+import { ImportButton } from "@/components/masters/import-button";
 
 // ============================================================
 // TYPES
@@ -284,10 +286,20 @@ export default function LocationsPage() {
         title="Location Master"
         description="Manage your organization's location hierarchy"
       >
-        <Button variant="brand" onClick={() => handleAdd("company")}>
-          <Plus className="mr-1.5 size-4" />
-          Add Company
-        </Button>
+        <div className="flex items-center gap-2">
+          <ImportButton
+            label="Import warehouses"
+            templateName="warehouses"
+            headers={["Region", "State", "City", "Warehouse", "WarehouseCode", "Address"]}
+            sample={["South", "Karnataka", "Bengaluru", "Whitefield DC", "WF-01", "Whitefield, Bengaluru"]}
+            action={importLocations}
+            onDone={() => loadLocations()}
+          />
+          <Button variant="brand" onClick={() => handleAdd("company")}>
+            <Plus className="mr-1.5 size-4" />
+            Add Company
+          </Button>
+        </div>
       </PageHeader>
 
       <Card>

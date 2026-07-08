@@ -302,6 +302,50 @@ export async function removeVendorCategory(
 // IMPORT VENDORS FROM CSV
 // ============================================================
 
+// Rows-based import (supports CSV and Excel via the client-side parser).
+export async function importVendorRows(rows: Record<string, string>[]) {
+  await requireVendorPermission();
+  let success = 0;
+  const errors: string[] = [];
+  for (const raw of rows) {
+    const r = Object.fromEntries(
+      Object.entries(raw).map(([k, v]) => [k.trim().toLowerCase(), String(v ?? "").trim()])
+    );
+    const name = r.name;
+    if (!name) continue;
+    try {
+      const code = (r.code || name.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 8)).toUpperCase();
+      if (await prisma.vendor.findUnique({ where: { code } })) {
+        errors.push(`${code}: already exists — skipped`);
+        continue;
+      }
+      await prisma.vendor.create({
+        data: {
+          name,
+          code,
+          legalName: r.legalname || undefined,
+          contactPerson: r.contactperson || name,
+          email: r.email || "",
+          phone: r.phone || "",
+          address: r.address || undefined,
+          city: r.city || undefined,
+          state: r.state || undefined,
+          pincode: r.pincode || undefined,
+          gstNumber: r.gstnumber || undefined,
+          panNumber: r.pannumber || undefined,
+          paymentTerms: r.paymentterms || undefined,
+          registrationStatus: "PENDING",
+        },
+      });
+      success++;
+    } catch (e) {
+      errors.push(`${r.name}: ${e instanceof Error ? e.message : "failed"}`);
+    }
+  }
+  revalidatePath(VENDOR_LIST_PATH);
+  return { success, errors };
+}
+
 export async function importVendors(csvData: string) {
   await requireVendorPermission();
 

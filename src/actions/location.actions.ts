@@ -23,6 +23,83 @@ async function requireLocationPermission() {
 const LOCATION_PATH = "/masters/locations";
 
 // ============================================================
+// BULK IMPORT (Warehouses via Region/State/City) — accepts parsed rows
+// ============================================================
+
+type LocRow = Record<string, string>;
+const lowerLoc = (r: LocRow): LocRow =>
+  Object.fromEntries(
+    Object.entries(r).map(([k, v]) => [k.trim().toLowerCase(), String(v ?? "").trim()])
+  );
+const slugLoc = (s: string) =>
+  s.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 8) || "X";
+
+async function freeWarehouseCode(base: string) {
+  for (let i = 0; i < 50; i++) {
+    const code = i === 0 ? base : `${base}${i}`;
+    if (!(await prisma.warehouse.findUnique({ where: { code } }))) return code;
+  }
+  return `${base}${Math.floor(base.length * 7)}`;
+}
+
+export async function importLocations(rows: LocRow[]) {
+  await requireLocationPermission();
+  const company = await prisma.company.findFirst({ where: { deletedAt: null } });
+  if (!company)
+    return { success: 0, errors: ["No company found — create a company first."] };
+
+  let success = 0;
+  const errors: string[] = [];
+  for (const raw of rows) {
+    const r = lowerLoc(raw);
+    const whName = r.warehouse || r.warehousename;
+    if (!whName) continue;
+    try {
+      const regionName = r.region || "Default Region";
+      let region = await prisma.region.findFirst({
+        where: { name: regionName, companyId: company.id, deletedAt: null },
+      });
+      if (!region)
+        region = await prisma.region.create({
+          data: { name: regionName, code: slugLoc(regionName), companyId: company.id },
+        });
+
+      const stateName = r.state || "Default State";
+      let state = await prisma.state.findFirst({
+        where: { name: stateName, regionId: region.id, deletedAt: null },
+      });
+      if (!state)
+        state = await prisma.state.create({
+          data: { name: stateName, code: slugLoc(stateName), regionId: region.id },
+        });
+
+      const cityName = r.city || "Default City";
+      let city = await prisma.city.findFirst({
+        where: { name: cityName, stateId: state.id, deletedAt: null },
+      });
+      if (!city)
+        city = await prisma.city.create({
+          data: { name: cityName, code: slugLoc(cityName), stateId: state.id },
+        });
+
+      await prisma.warehouse.create({
+        data: {
+          name: whName,
+          code: await freeWarehouseCode(r.warehousecode ? slugLoc(r.warehousecode) : slugLoc(whName)),
+          address: r.address || undefined,
+          cityId: city.id,
+        },
+      });
+      success++;
+    } catch (e) {
+      errors.push(`${whName}: ${e instanceof Error ? e.message : "failed"}`);
+    }
+  }
+  revalidatePath(LOCATION_PATH);
+  return { success, errors };
+}
+
+// ============================================================
 // SCHEMAS
 // ============================================================
 

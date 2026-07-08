@@ -14,7 +14,8 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { CreateTaxonomyButton } from "@/components/masters/create-taxonomy-button";
-import { getCategories } from "@/actions/product.actions";
+import { ImportButton } from "@/components/masters/import-button";
+import { getCategories, importCategories } from "@/actions/product.actions";
 
 type Category = Awaited<ReturnType<typeof getCategories>>[number];
 
@@ -49,6 +50,13 @@ export default function CategoriesPage() {
           <ArrowLeft className="mr-1.5 size-4" />
           Back to Masters
         </Button>
+        <ImportButton
+          templateName="categories"
+          headers={["Category", "Subcategory", "ProductGroup"]}
+          sample={["Office Supplies", "Stationery", "Paper"]}
+          action={importCategories}
+          onDone={() => loadCategories()}
+        />
         <CreateTaxonomyButton level="category" onCreated={loadCategories} />
       </PageHeader>
 

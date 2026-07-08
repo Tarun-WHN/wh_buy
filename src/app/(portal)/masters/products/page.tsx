@@ -19,7 +19,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { getProducts, getCategories } from "@/actions/product.actions";
+import { getProducts, getCategories, importProducts } from "@/actions/product.actions";
+import { ImportButton } from "@/components/masters/import-button";
 
 // ============================================================
 // TYPES
@@ -156,10 +157,20 @@ export default function ProductsPage() {
         title="Product Master"
         description="Manage your product catalog"
       >
-        <Button variant="brand" render={<Link href="/masters/products/new" />}>
-          <Plus className="mr-1.5 size-4" />
-          Add Product
-        </Button>
+        <div className="flex items-center gap-2">
+          <ImportButton
+            label="Import"
+            templateName="products"
+            headers={["Name", "SKU", "Category", "Subcategory", "ProductGroup", "UOM", "Brand", "ModelNumber", "Size", "HSN", "GST"]}
+            sample={["A4 Copier Paper", "OFC-A4-001", "Office Supplies", "Stationery", "Paper", "Nos", "Local / Non-branded", "NA", "500 sheets", "4820", "12"]}
+            action={importProducts}
+            onDone={() => loadProducts()}
+          />
+          <Button variant="brand" render={<Link href="/masters/products/new" />}>
+            <Plus className="mr-1.5 size-4" />
+            Add Product
+          </Button>
+        </div>
       </PageHeader>
 
       <Card>

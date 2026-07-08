@@ -5,7 +5,7 @@ import { useState, useEffect, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Plus, Upload } from "lucide-react";
+import { Plus } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -20,7 +20,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { VENDOR_REGISTRATION_STATUS } from "@/lib/constants";
-import { getVendors } from "@/actions/vendor.actions";
+import { getVendors, importVendorRows } from "@/actions/vendor.actions";
+import { ImportButton } from "@/components/masters/import-button";
 
 // ============================================================
 // TYPES
@@ -140,10 +141,13 @@ export default function VendorsPage() {
         title="Vendor Master"
         description="Manage your vendor directory"
       >
-        <Button variant="outline" render={<Link href="/masters/vendors/import" />}>
-          <Upload className="mr-1.5 size-4" />
-          Import CSV
-        </Button>
+        <ImportButton
+          templateName="vendors"
+          headers={["Name", "Code", "ContactPerson", "Email", "Phone", "Address", "City", "State", "Pincode", "GSTNumber", "PANNumber", "PaymentTerms"]}
+          sample={["Acme Traders", "ACME", "Ravi Kumar", "ravi@acme.com", "9876543210", "12 MG Road", "Bengaluru", "Karnataka", "560001", "29ABCDE1234F1Z5", "ABCDE1234F", "30 days"]}
+          action={importVendorRows}
+          onDone={() => loadVendors()}
+        />
         <Button variant="brand" render={<Link href="/masters/vendors/new" />}>
           <Plus className="mr-1.5 size-4" />
           Add Vendor
