@@ -174,6 +174,124 @@ export async function getRfq(id: string) {
 }
 
 // ============================================================
+// RECORD A VENDOR QUOTE (buyer captures vendor's quote + attachment)
+// ============================================================
+
+const recordQuoteSchema = z.object({
+  rfqId: z.string().min(1),
+  vendorId: z.string().min(1),
+  freight: z.coerce.number().min(0).default(0),
+  remarks: z.string().optional(),
+  filePath: z.string().optional(),
+  fileName: z.string().optional(),
+  items: z
+    .array(
+      z.object({
+        rfqLineItemId: z.string().min(1),
+        unitPrice: z.coerce.number().min(0),
+        taxPercent: z.coerce.number().min(0).default(0),
+      })
+    )
+    .min(1, "At least one line price is required"),
+});
+
+export async function recordVendorQuote(data: z.infer<typeof recordQuoteSchema>) {
+  await requireRfqCreate();
+  const p = recordQuoteSchema.parse(data);
+
+  const lineItems = await prisma.rfqLineItem.findMany({
+    where: { rfqId: p.rfqId },
+    select: { id: true, quantity: true },
+  });
+  const qtyMap = new Map(lineItems.map((li) => [li.id, li.quantity]));
+
+  let subtotal = 0;
+  let taxTotal = 0;
+  const itemsData = p.items
+    .filter((it) => qtyMap.has(it.rfqLineItemId) && it.unitPrice > 0)
+    .map((it) => {
+      const qty = qtyMap.get(it.rfqLineItemId)!;
+      const line = it.unitPrice * qty;
+      const tax = line * (it.taxPercent / 100);
+      subtotal += line;
+      taxTotal += tax;
+      return {
+        rfqLineItemId: it.rfqLineItemId,
+        unitPrice: it.unitPrice,
+        quantity: qty,
+        taxPercent: it.taxPercent,
+        taxAmount: tax,
+        totalPrice: line + tax,
+      };
+    });
+  if (itemsData.length === 0) throw new Error("Enter a price for at least one item");
+
+  const totalAmount = subtotal + taxTotal + p.freight;
+  const existing = await prisma.quotation.findFirst({
+    where: { rfqId: p.rfqId, vendorId: p.vendorId },
+    orderBy: { revision: "desc" },
+  });
+  const revision = existing ? existing.revision + 1 : 1;
+  const seq = await getNextSequence("QT", "QT");
+
+  await prisma.quotation.create({
+    data: {
+      number: generateNumber("QT", seq),
+      rfqId: p.rfqId,
+      vendorId: p.vendorId,
+      revision,
+      status: "SUBMITTED",
+      freight: p.freight,
+      remarks: p.remarks,
+      filePath: p.filePath,
+      fileName: p.fileName,
+      totalAmount,
+      submittedAt: new Date(),
+      items: { create: itemsData },
+    },
+  });
+
+  await prisma.rfqVendor.updateMany({
+    where: { rfqId: p.rfqId, vendorId: p.vendorId },
+    data: { status: "RESPONDED" },
+  });
+
+  revalidatePath(`/rfq/${p.rfqId}/compare`);
+  revalidatePath(`/rfq/${p.rfqId}`);
+}
+
+// ============================================================
+// AWARD A QUOTATION (select vendor with remarks)
+// ============================================================
+
+export async function awardQuotation(
+  rfqId: string,
+  quotationId: string,
+  remarks: string
+) {
+  await requireRfqCreate();
+  const q = await prisma.quotation.findUnique({ where: { id: quotationId } });
+  if (!q || q.rfqId !== rfqId) throw new Error("Quotation not found for this RFQ");
+
+  await prisma.rfq.update({
+    where: { id: rfqId },
+    data: {
+      awardedQuotationId: quotationId,
+      selectionRemarks: remarks || null,
+      status: "AWARDED",
+    },
+  });
+  await prisma.quotation.update({
+    where: { id: quotationId },
+    data: { status: "AWARDED" },
+  });
+
+  revalidatePath(`/rfq/${rfqId}/compare`);
+  revalidatePath(`/rfq/${rfqId}`);
+  return { vendorId: q.vendorId };
+}
+
+// ============================================================
 // CREATE RFQ
 // ============================================================
 

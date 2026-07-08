@@ -387,6 +387,8 @@ model Rfq {
   submissionDeadline DateTime?
   termsConditions    String?
   deliveryLocation   String?
+  awardedQuotationId String?
+  selectionRemarks   String?
   createdBy          User         @relation("RfqCreator", fields: [createdById], references: [id])
   createdById        String
   createdAt          DateTime     @default(now())
@@ -446,6 +448,8 @@ model Quotation {
   freight      Float     @default(0)
   remarks      String?
   totalAmount  Float     @default(0)
+  filePath     String?
+  fileName     String?
   submittedAt  DateTime?
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
