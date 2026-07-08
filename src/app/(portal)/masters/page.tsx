@@ -6,7 +6,7 @@ import {
   CardDescription,
   CardTitle,
 } from "@/components/ui/card";
-import { MapPin, Package, FolderTree, Users, ArrowRight } from "lucide-react";
+import { MapPin, Package, FolderTree, Tag, Users, ArrowRight } from "lucide-react";
 
 const SECTIONS = [
   {
@@ -29,6 +29,13 @@ const SECTIONS = [
     href: "/masters/categories",
     icon: FolderTree,
     accent: "#10B981",
+  },
+  {
+    title: "Brands",
+    description: "Manage the brand list used across products",
+    href: "/masters/brands",
+    icon: Tag,
+    accent: "#EC4899",
   },
   {
     title: "Vendors",

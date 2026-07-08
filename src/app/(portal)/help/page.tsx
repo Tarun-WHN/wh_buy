@@ -27,6 +27,7 @@ import {
   Settings,
   Store,
   FolderTree,
+  Tag,
   Gauge,
   Sparkles,
   ChevronDown,
@@ -250,6 +251,14 @@ const MODULES: ModuleGuide[] = [
     accent: "#6366f1",
     what: "The Category → Sub-category → Product Group tree your products are organised under.",
     how: "Manage the full tree here, or create entries on the fly with the “+” buttons in the product form.",
+  },
+  {
+    slug: "brands",
+    icon: Tag,
+    name: "Masters → Brands",
+    accent: "#EC4899",
+    what: "The brand list products are chosen from (includes 'Local / Non-branded').",
+    how: "Add or edit brands here. Brand, Model No. and Size are now mandatory on every product.",
   },
   {
     slug: "vendors",

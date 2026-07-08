@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/select";
 import { UOM_OPTIONS } from "@/lib/constants";
 import { createProduct, getCategories } from "@/actions/product.actions";
+import { getBrandOptions } from "@/actions/brand.actions";
 import { CreateTaxonomyButton } from "@/components/masters/create-taxonomy-button";
 
 // ============================================================
@@ -67,6 +68,13 @@ export default function NewProductPage() {
   const [modelNumber, setModelNumber] = useState("");
   const [size, setSize] = useState("");
   const [brand, setBrand] = useState("");
+  const [brands, setBrands] = useState<{ id: string; name: string }[]>([]);
+
+  useEffect(() => {
+    getBrandOptions()
+      .then((b) => setBrands(b as never))
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     startTransition(async () => {
@@ -106,8 +114,8 @@ export default function NewProductPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
 
-    if (!name || !sku || !uom || !productGroupId) {
-      toast.error("Please fill in all required fields");
+    if (!name || !sku || !uom || !productGroupId || !brand || !modelNumber || !size) {
+      toast.error("Please fill in all required fields (incl. Brand, Model No. & Size)");
       return;
     }
 
@@ -120,9 +128,9 @@ export default function NewProductPage() {
         hsnCode: hsnCode || undefined,
         gstPercent: parseFloat(gstPercent) || 0,
         specifications: specifications || undefined,
-        modelNumber: modelNumber || undefined,
-        size: size || undefined,
-        brand: brand || undefined,
+        modelNumber,
+        size,
+        brand,
         productGroupId,
       });
       toast.success("Product created successfully");
@@ -341,34 +349,50 @@ export default function NewProductPage() {
 
             {/* Brand */}
             <div className="grid gap-2">
-              <Label htmlFor="brand">Brand</Label>
-              <Input
-                id="brand"
-                value={brand}
-                onChange={(e) => setBrand(e.target.value)}
-                placeholder="e.g. Godrej, Local Fabrication"
-              />
+              <Label>
+                Brand <span className="text-destructive">*</span>
+              </Label>
+              <Select value={brand} onValueChange={(v) => setBrand(v ?? "")}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select brand">
+                    {(value) => value || "Select brand"}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {brands.map((b) => (
+                    <SelectItem key={b.id} value={b.name}>
+                      {b.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             {/* Model Number */}
             <div className="grid gap-2">
-              <Label htmlFor="modelNumber">Model Number</Label>
+              <Label htmlFor="modelNumber">
+                Model Number <span className="text-destructive">*</span>
+              </Label>
               <Input
                 id="modelNumber"
                 value={modelNumber}
                 onChange={(e) => setModelNumber(e.target.value)}
                 placeholder="Model / part number"
+                required
               />
             </div>
 
             {/* Size */}
             <div className="grid gap-2">
-              <Label htmlFor="size">Size</Label>
+              <Label htmlFor="size">
+                Size <span className="text-destructive">*</span>
+              </Label>
               <Input
                 id="size"
                 value={size}
                 onChange={(e) => setSize(e.target.value)}
                 placeholder="e.g. 6x3x1.5 ft"
+                required
               />
             </div>
 

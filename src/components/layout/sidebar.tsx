@@ -16,6 +16,7 @@ import {
   MapPin,
   Package,
   FolderTree,
+  Tag,
   Users,
   FileText,
   ShoppingCart,
@@ -70,6 +71,12 @@ const NAV_GROUPS: NavGroup[] = [
         label: "Categories",
         href: "/masters/categories",
         icon: FolderTree,
+        permission: PERMISSIONS.PRODUCT_MANAGE,
+      },
+      {
+        label: "Brands",
+        href: "/masters/brands",
+        icon: Tag,
         permission: PERMISSIONS.PRODUCT_MANAGE,
       },
       {

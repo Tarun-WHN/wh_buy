@@ -34,9 +34,9 @@ const productSchema = z.object({
   hsnCode: z.string().optional(),
   gstPercent: z.coerce.number().min(0).max(100).default(0),
   specifications: z.string().optional(),
-  modelNumber: z.string().optional(),
-  size: z.string().optional(),
-  brand: z.string().optional(),
+  modelNumber: z.string().min(1, "Model number is required"),
+  size: z.string().min(1, "Size is required"),
+  brand: z.string().min(1, "Brand is required"),
   productGroupId: z.string().min(1, "Product group is required"),
   isActive: z.boolean().optional(),
 });

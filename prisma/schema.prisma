@@ -157,6 +157,15 @@ model Warehouse {
 // PRODUCT MASTER
 // ============================================================
 
+model Brand {
+  id        String    @id @default(cuid())
+  name      String    @unique
+  isActive  Boolean   @default(true)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+}
+
 model Category {
   id        String    @id @default(cuid())
   name      String

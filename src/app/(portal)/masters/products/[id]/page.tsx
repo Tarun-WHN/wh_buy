@@ -28,6 +28,7 @@ import { Badge } from "@/components/ui/badge";
 import { UOM_OPTIONS } from "@/lib/constants";
 import { cn, formatDateTime } from "@/lib/utils";
 import { getProduct, getCategories, updateProduct } from "@/actions/product.actions";
+import { getBrandOptions } from "@/actions/brand.actions";
 import { CreateTaxonomyButton } from "@/components/masters/create-taxonomy-button";
 import { ProductVendors } from "@/components/masters/product-vendors";
 
@@ -112,8 +113,15 @@ export default function ProductDetailPage({
   const [modelNumber, setModelNumber] = useState("");
   const [size, setSize] = useState("");
   const [brand, setBrand] = useState("");
+  const [brands, setBrands] = useState<{ id: string; name: string }[]>([]);
   const [changeReason, setChangeReason] = useState("");
   const [tab, setTab] = useState<"details" | "vendors" | "versions">("details");
+
+  useEffect(() => {
+    getBrandOptions()
+      .then((b) => setBrands(b as never))
+      .catch(() => {});
+  }, []);
 
   async function reloadCategories() {
     const cats = await getCategories();
@@ -184,8 +192,8 @@ export default function ProductDetailPage({
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
 
-    if (!name || !sku || !uom || !productGroupId) {
-      toast.error("Please fill in all required fields");
+    if (!name || !sku || !uom || !productGroupId || !brand || !modelNumber || !size) {
+      toast.error("Please fill in all required fields (incl. Brand, Model No. & Size)");
       return;
     }
 
@@ -198,9 +206,9 @@ export default function ProductDetailPage({
         hsnCode: hsnCode || undefined,
         gstPercent: parseFloat(gstPercent) || 0,
         specifications: specifications || undefined,
-        modelNumber: modelNumber || undefined,
-        size: size || undefined,
-        brand: brand || undefined,
+        modelNumber,
+        size,
+        brand,
         productGroupId,
         changeReason: changeReason || undefined,
       });
@@ -448,17 +456,29 @@ export default function ProductDetailPage({
                 </div>
 
                 <div className="grid gap-2">
-                  <Label htmlFor="brand">Brand</Label>
-                  <Input
-                    id="brand"
-                    value={brand}
-                    onChange={(e) => setBrand(e.target.value)}
-                    placeholder="e.g. Godrej, Local Fabrication"
-                  />
+                  <Label>
+                    Brand <span className="text-destructive">*</span>
+                  </Label>
+                  <Select value={brand} onValueChange={(v) => setBrand(v ?? "")}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select brand">
+                        {(value) => value || "Select brand"}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {brands.map((b) => (
+                        <SelectItem key={b.id} value={b.name}>
+                          {b.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 <div className="grid gap-2">
-                  <Label htmlFor="modelNumber">Model Number</Label>
+                  <Label htmlFor="modelNumber">
+                    Model Number <span className="text-destructive">*</span>
+                  </Label>
                   <Input
                     id="modelNumber"
                     value={modelNumber}
@@ -468,7 +488,9 @@ export default function ProductDetailPage({
                 </div>
 
                 <div className="grid gap-2">
-                  <Label htmlFor="size">Size</Label>
+                  <Label htmlFor="size">
+                    Size <span className="text-destructive">*</span>
+                  </Label>
                   <Input
                     id="size"
                     value={size}

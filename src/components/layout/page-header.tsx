@@ -11,6 +11,7 @@ const HELP_TOPICS: [string, string][] = [
   ["/masters/locations", "locations"],
   ["/masters/products", "products"],
   ["/masters/categories", "categories"],
+  ["/masters/brands", "brands"],
   ["/masters/vendors", "vendors"],
   ["/masters", "products"],
   ["/requirements", "requirements"],
