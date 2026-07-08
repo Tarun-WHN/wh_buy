@@ -29,6 +29,7 @@ import {
   FolderTree,
   Tag,
   Gauge,
+  CloudUpload,
   Sparkles,
   ChevronDown,
   CheckCircle2,
@@ -283,6 +284,14 @@ const MODULES: ModuleGuide[] = [
     accent: "#06b6d4",
     what: "An ask to vendors: 'what's your price for these items?'",
     how: "Create an RFQ from a requirement, select vendors, and send. Compare the quotes that come back side-by-side.",
+  },
+  {
+    slug: "bill-import",
+    icon: CloudUpload,
+    name: "Bill / Price Import",
+    accent: "#0ea5e9",
+    what: "Upload historical bills/price data (CSV or Excel) to seed real rates, vendors and cities.",
+    how: "Download the template, fill product/vendor/rate/city, and upload — it updates price history and vendor rates so all the intelligence reports populate.",
   },
   {
     slug: "vendor-performance",

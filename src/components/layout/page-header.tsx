@@ -17,6 +17,7 @@ const HELP_TOPICS: [string, string][] = [
   ["/requirements", "requirements"],
   ["/rfq", "rfq"],
   ["/vendor-performance", "vendor-performance"],
+  ["/bill-import", "bill-import"],
   ["/purchase-orders", "purchase-orders"],
   ["/delivery", "deliveries"],
   ["/grn", "grn"],
